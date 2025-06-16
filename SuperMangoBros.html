@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Super Mango Bros</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      background: url('https://i.imgur.com/n8YHjXA.png'); 
+      background-size: cover;
+    }
+  </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="640" height="480"></canvas>
+<script>
+// Inicialización de canvas
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Sprite base64 incrustado (el mango-personaje)
+const sprite = new Image();
+sprite.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsSAAALEgHS3X78AAAFFklEQVR4nO2aW08bVRTGf7N7iFSQtNBIUMGAiURDbAygRiYyoR8TASRkUjwUFn0BdKBFS+BGzEZoXEaLC4mJiPoh2EKQkiUFGQWo1aGoGAyiA+aGr+X/y1x37zJw53JnU+7P3dvfc1+f1yzeel9WV1dX5cpn0TfUGKoqqriKgjMdbV1dZHL5bHq9HovFYklZWVqJUKrp27Uqapmfj8Xh4eHi4cOFCB7vd3JWVlZWWlpaXF5eXlpa2oJD7tVqtLgN3t/bm8/Pz6HQ6zWxsbCTzH1++fCk1NTVVVVU0Go2GhobGypUrGhoaioqK0tHRweHh4UlJSUFVVdXLlyrW0tMSTk5MoFAqS7u5u6urq4v//f3FxcbGxsbEiWJfLpRIcHBzQ3d3d7du36+Pj47W3t8fExATZ2dlYXFxMNBqNv78/HR0d8fT0dHBwMPr6+ry6XsVi0YWFhCQ8Pz1tvb4+YmJjQ0tISPXv2FB0d7eDgYH5+/sPDw9bW1qKgoCAtLS1wcHCQkJDAaDRaW1vLzMxkaGgocnJyCgsL09jYyIABA1heXo6UlBRVV1fXvAXt7OxkZGRGZmZlVVVWnZsmUnT54Ui8UYGBjQ2dlZsVgMJCQnB09MT2tvbFxYWFhgYGHDu3DnFxcWsrKxkZ2eTkpL06dNHV1dXycnJtLS00NDQ8Pr6KktLS4uPj/fu3SvY2FiFhYWhoaGhoaOjQ1xcHLa2tlxeXo6Hh4fGxsZwOBy5ublBQEAwGo3k5OR0+fBhJSUnR1tZGTEyMfP78+fT09PT29rbq6ulJSUuLo6Gh4eHhwc3ODmJj4+/ujoaFhYWMjNzSVN3P8my2WwKCoqIiIiAja1taGhISkpKS4ufnp6cHpXJ5YWFjQ3d3Nzc2dnZ2SkpL07Nmzc/bsWYoWkWgU2tracnNzQ0RERHp6Opqbm7u9vU1PTw/LlyyUlJRUWFiYnTt3joSEBMViMX19fRoaGlRWVmZmZkZGxuLi4nT06OwzkgKqqKtLS0uLixsbGxwfk9evRIeHi4pKSkZGRkQE5OjpoaGgsWbIEvV6v0dHRVVJSYkFBQXt7O52dnR0ZGcnx8bFTp04lJSX5+/uLFi2IiYkhPDwcvb29pKamYmNjc+TIEe7fvx9BQYF6vV6+vr7IyMhQVVXF6enpM2fOlBoaioCAAAQHB/vv37xsZGQE1NTUkJCTQ3N2NhYcF2u52VlZSwsLDQ0NBQUFMTo6ip6enri4uFBSUlJyfHxESkpK3N3dAQoKSpqamjQ3Nw9lZWX09fWxsbEJCQmhoaF8//33X3t7e8XFxejo6Lh//z4+PjZr165dQUGB6enpiY2NxdHRkZ6eTsViEY/H47FYZGRkSEhLExsZy79694OBgMTExpKamEhYWpmf/q14L8xJENg8AAAAASUVORK5CYII=';
+
+// Jugador
+const player = {
+  x: 50,
+  y: 300,
+  width: 64,
+  height: 64,
+  velocityY: 0,
+  jumpPower: -12,
+  grounded: false,
+  gravity: 0.8
+};
+
+// Objetos del mundo
+const ground = { x: 0, y: 440, width: canvas.width, height: 40, color: "#654321" };
+const platform = { x: 200, y: 350, width: 100, height: 20, color: "#b5651d" };
+const enemy = { x: 400, y: 400, width: 40, height: 40, speed: 2, direction: 1, color: "purple" };
+
+let keys = {};
+
+function isColliding(a, b) {
+  return a.x < b.x + b.width &&
+         a.x + a.width > b.x &&
+         a.y < b.y + b.height &&
+         a.y + a.height > b.y;
+}
+
+function update() {
+  if (keys['d']) player.x += 4;
+  if (keys['a']) player.x -= 4;
+
+  player.velocityY += player.gravity;
+  player.y += player.velocityY;
+
+  player.grounded = false;
+  if (player.y + player.height > ground.y) {
+    player.y = ground.y - player.height;
+    player.velocityY = 0;
+    player.grounded = true;
+  }
+
+  if (isColliding(player, platform) && player.velocityY >= 0) {
+    player.y = platform.y - player.height;
+    player.velocityY = 0;
+    player.grounded = true;
+  }
+
+  enemy.x += enemy.speed * enemy.direction;
+  if (enemy.x <= 380 || enemy.x + enemy.width >= 480) {
+    enemy.direction *= -1;
+  }
+
+  if (isColliding(player, enemy)) {
+    alert("¡Has sido golpeado por una fruta malvada!");
+    player.x = 50;
+    player.y = 300;
+  }
+}
+
+function drawRect(obj) {
+  ctx.fillStyle = obj.color;
+  ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+}
+
+function drawImage(obj, img) {
+  ctx.drawImage(img, obj.x, obj.y, obj.width, obj.height);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawRect(ground);
+  drawRect(platform);
+  drawRect(enemy);
+  drawImage(player, sprite);
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// Controles con WASD y salto con W
+document.addEventListener('keydown', (e) => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key.toLowerCase() === 'w' && player.grounded) {
+    player.velocityY = player.jumpPower;
+  }
+});
+document.addEventListener('keyup', (e) => {
+  keys[e.key.toLowerCase()] = false;
+});
+
+sprite.onload = () => loop();
+</script>
+</body>
+</html>
