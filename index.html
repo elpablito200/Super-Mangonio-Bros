@@ -73,34 +73,35 @@
   <script>
     const game = document.getElementById('game');
     const player = document.getElementById('player');
-    let isJumping = false;
-    let position = 0;
-    let obstacles = [];
+    let velocity = 0;
+    let gravity = 1.2;
+    let jumpPower = -18;
+    let isOnGround = true;
+    let y = 0;
+
+    function update() {
+      velocity += gravity;
+      y += velocity;
+
+      if (y > 0) {
+        y = 0;
+        velocity = 0;
+        isOnGround = true;
+      }
+
+      player.style.transform = `translateY(${y}px)`;
+
+      requestAnimationFrame(update);
+    }
 
     document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' && !isJumping) {
-        isJumping = true;
-        let jumpCount = 0;
-        const upInterval = setInterval(() => {
-          if (jumpCount >= 20) {
-            clearInterval(upInterval);
-            const downInterval = setInterval(() => {
-              if (position <= 0) {
-                clearInterval(downInterval);
-                isJumping = false;
-              } else {
-                position -= 5;
-                player.style.transform = `translateY(-${position}px)`;
-              }
-            }, 20);
-          } else {
-            position += 5;
-            player.style.transform = `translateY(-${position}px)`;
-            jumpCount++;
-          }
-        }, 20);
+      if (e.code === 'Space' && isOnGround) {
+        velocity = jumpPower;
+        isOnGround = false;
       }
     });
+
+    update();
 
     function createObstacle() {
       const obstacle = document.createElement('div');
@@ -110,10 +111,9 @@
       game.appendChild(obstacle);
 
       const moveInterval = setInterval(() => {
-        left -= 5;
+        left -= 6;
         obstacle.style.left = left + 'px';
 
-        // Collision detection
         const playerLeft = 80;
         const playerRight = 80 + 80;
         const obstacleRight = left + 40;
@@ -121,7 +121,7 @@
         if (
           left < playerRight &&
           obstacleRight > playerLeft &&
-          position < 80
+          y > -80
         ) {
           alert('¡Has perdido!');
           window.location.reload();
@@ -131,12 +131,11 @@
           clearInterval(moveInterval);
           game.removeChild(obstacle);
         }
-      }, 20);
-
-      obstacles.push(obstacle);
+      }, 16);
     }
 
-    setInterval(createObstacle, 2000);
+    // Solo un obstáculo al principio
+    setTimeout(createObstacle, 2000);
   </script>
 </body>
 </html>
