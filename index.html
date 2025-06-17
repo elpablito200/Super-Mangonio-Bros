@@ -4,88 +4,114 @@
   <meta charset="UTF-8">
   <title>Super Mangonio Bros</title>
   <style>
-    html, body { margin:0; padding:0; overflow:hidden; background:black; }
-    canvas { display:block; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: black;
+    }
+    canvas {
+      display: block;
+    }
   </style>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
-<audio id="bgMusic" src="music.mp3" loop></audio>
-
+<audio id="bgm" loop autoplay>
+  <source src="music.mp3" type="audio/mpeg">
+</audio>
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+const bgm = document.getElementById("bgm");
 
-const width = canvas.width;
-const height = canvas.height;
-const FLOOR = height - 64;
-const GRAVITY = 0.4;
+let width = window.innerWidth;
+let height = window.innerHeight;
+canvas.width = width;
+canvas.height = height;
 
 let keys = {};
-let mouse = { left: false };
+let mouseClicked = false;
 let gameStarted = false;
 let gameOver = false;
 let level = 1;
-let lives = 3;
 let cameraX = 0;
-const music = document.getElementById("bgMusic");
+let lives = 3;
 
-let images = {};
-let toLoad = {
-  background: "background.png",
-  player: "mangonio.png",
-  enemy: "umpalumpa.png",
-  pipe: "tuberia.png",
-  goal: "monedas.png"
+const GRAVITY = 0.4;
+const FLOOR = height - 64;
+
+const images = {
+  background: new Image(),
+  mangonio: new Image(),
+  enemy: new Image(),
+  pipe: new Image(),
+  minion: new Image(),
+  coin: new Image()
 };
-
-let loaded = 0;
-for (let key in toLoad) {
-  images[key] = new Image();
-  images[key].src = toLoad[key];
-  images[key].onload = () => {
-    loaded++;
-    if (loaded === Object.keys(toLoad).length) {
-      resetLevel();
-      loop();
-    }
-  };
-}
+images.background.src = "background.png";
+images.mangonio.src = "mangonio.png";
+images.enemy.src = "umpalumpa.png";
+images.pipe.src = "tuberia.png";
+images.minion.src = "minion.png";
+images.coin.src = "monedas.png";
 
 let player = {
-  x: 50, y: FLOOR - 32, vx: 0, vy: 0,
+  x: 50, y: 300, vx: 0, vy: 0,
   width: 32, height: 32,
   grounded: false,
   facing: "right"
 };
 
 let enemies = [];
+let powerUps = [];
+let barriers = [];
+let blocks = [];
 let pipes = [];
-let goal = {};
+let minions = [];
+let goal = null;
+
+document.addEventListener("keydown", e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key.toLowerCase() === "q" && (!gameStarted || gameOver)) {
+    gameStarted = true;
+    gameOver = false;
+    lives = 3;
+    level = 1;
+    resetLevel();
+    bgm.play();
+  }
+});
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+document.addEventListener("mousedown", () => mouseClicked = true);
+document.addEventListener("mouseup", () => mouseClicked = false);
 
 function resetLevel() {
   player.x = 50;
-  player.y = FLOOR - player.height;
+  player.y = 300;
   player.vx = 0;
   player.vy = 0;
-  player.grounded = false;
   player.facing = "right";
   cameraX = 0;
 
+  barriers = [{ x: -50, y: 0, width: 100, height: height }];
   enemies = [
-    { x: 600, y: FLOOR - 32, width: 32, height: 32, dir: 1, speed: 1 }
+    { x: 600, y: FLOOR - 24, width: 24, height: 24, dir: 1, speed: 1 },
+    { x: 900, y: FLOOR - 24, width: 24, height: 24, dir: -1, speed: 1 }
   ];
-
+  powerUps = [];
+  blocks = [
+    { x: 150, y: FLOOR - 32, width: 32, height: 32 },
+    { x: 180, y: FLOOR - 64, width: 32, height: 32 },
+    { x: 210, y: FLOOR - 96, width: 32, height: 32 }
+  ];
   pipes = [
     { x: 700, y: FLOOR - 48, width: 64, height: 48 }
   ];
-
-  // Meta
-  goal = { x: 1300, y: FLOOR - 64, width: 32, height: 64 };
-
-  gameOver = false;
+  minions = [
+    { x: 700, y: FLOOR - 80, width: 32, height: 32 }
+  ];
+  goal = { x: 1300, y: FLOOR - 32, width: 32, height: 32 };
 }
 
 function checkCollision(a, b) {
@@ -93,53 +119,32 @@ function checkCollision(a, b) {
          a.y < b.y + b.height && a.y + a.height > b.y;
 }
 
-function checkVerticalCollision(a, b) {
-  return a.x < b.x + b.width && a.x + a.width > b.x &&
-         a.y + a.height <= b.y + 5 &&
-         a.y + a.height + a.vy >= b.y;
-}
-
-document.addEventListener("keydown", e => {
-  keys[e.key.toLowerCase()] = true;
-  if (e.key === "ArrowLeft") keys["arrowleft"] = true;
-  if (e.key === "ArrowRight") keys["arrowright"] = true;
-  if (e.key === "ArrowUp") keys["arrowup"] = true;
-  if (e.key.toLowerCase() === "q" && (!gameStarted || gameOver)) {
-    gameStarted = true;
-    music.play();
-    level = 1;
-    lives = 3;
-    resetLevel();
+function drawRepeatingBackground() {
+  const bgWidth = images.background.width;
+  const bgHeight = images.background.height;
+  let startX = Math.floor(cameraX / bgWidth) * bgWidth;
+  for (let x = startX - bgWidth; x < cameraX + canvas.width; x += bgWidth) {
+    ctx.drawImage(images.background, x - cameraX, 0, bgWidth, bgHeight);
   }
-});
-
-document.addEventListener("keyup", e => {
-  keys[e.key.toLowerCase()] = false;
-  if (e.key === "ArrowLeft") keys["arrowleft"] = false;
-  if (e.key === "ArrowRight") keys["arrowright"] = false;
-  if (e.key === "ArrowUp") keys["arrowup"] = false;
-});
-
-canvas.addEventListener("mousedown", e => {
-  if (e.button === 0) mouse.left = true;
-});
-
-canvas.addEventListener("mouseup", e => {
-  if (e.button === 0) mouse.left = false;
-});
+}
 
 function update() {
   if (!gameStarted || gameOver) return;
 
   let left = keys["a"] || keys["arrowleft"];
   let right = keys["d"] || keys["arrowright"];
+  let jump = keys["w"] || keys[" "] || keys["arrowup"] || mouseClicked;
 
-  player.vx = (left ? -3 : 0) + (right ? 3 : 0);
+  player.vx = 0;
+  if (left) {
+    player.vx = -2;
+    player.facing = "left";
+  }
+  if (right) {
+    player.vx = 2;
+    player.facing = "right";
+  }
 
-  if (left) player.facing = "left";
-  if (right) player.facing = "right";
-
-  let jump = keys["w"] || keys[" "] || keys["arrowup"] || mouse.left;
   if (jump && player.grounded) {
     player.vy = -8;
     player.grounded = false;
@@ -149,105 +154,118 @@ function update() {
   player.x += player.vx;
   player.y += player.vy;
 
+  // Piso
   if (player.y + player.height >= FLOOR) {
     player.y = FLOOR - player.height;
     player.vy = 0;
     player.grounded = true;
   }
 
-  for (let pipe of pipes) {
-    if (checkVerticalCollision(player, pipe)) {
-      player.y = pipe.y - player.height;
-      player.vy = 0;
-      player.grounded = true;
+  // Colisiones
+  [...blocks, ...pipes, ...barriers].forEach(obj => {
+    if (checkCollision(player, obj)) {
+      // Piso sólido
+      if (player.vy > 0 && player.y + player.height <= obj.y + player.vy) {
+        player.y = obj.y - player.height;
+        player.vy = 0;
+        player.grounded = true;
+      } else if (player.vy < 0 && player.y >= obj.y + obj.height - player.vy) {
+        player.vy = 0;
+      } else if (player.vx > 0) {
+        player.x = obj.x - player.width;
+      } else if (player.vx < 0) {
+        player.x = obj.x + obj.width;
+      }
     }
-    if (checkCollision(player, pipe)) {
-      if (player.vx > 0) player.x = pipe.x - player.width;
-      else if (player.vx < 0) player.x = pipe.x + pipe.width;
-    }
-  }
+  });
 
-  for (let e of enemies) {
+  enemies.forEach(e => {
     e.x += e.dir * e.speed;
-    for (let pipe of pipes) {
-      if (checkCollision(e, pipe)) e.dir *= -1;
-    }
-    if (checkCollision(player, e)) {
+    const enemyBox = { x: e.x, y: e.y, width: e.width, height: e.height };
+    if (pipes.some(p => checkCollision(enemyBox, p))) e.dir *= -1;
+    if (checkCollision(player, enemyBox)) {
       lives--;
       if (lives <= 0) gameOver = true;
       resetLevel();
-      return;
     }
-  }
+  });
 
-  if (checkCollision(player, goal)) {
-    level++;
-    if (level > 3) {
-      alert("🎉 ¡Ganaste todos los niveles!");
-      music.pause();
-      gameStarted = false;
-    } else {
-      alert("✅ Nivel " + (level - 1) + " completado");
-      resetLevel();
-    }
+  if (goal && checkCollision(player, goal)) {
+    alert("🎉 ¡Llegaste a la meta!");
+    gameStarted = false;
   }
 
   cameraX = player.x - 100;
-  if (cameraX < 0) cameraX = 0;
 }
 
 function draw() {
   ctx.clearRect(0, 0, width, height);
 
-  if (!gameStarted) {
-    ctx.fillStyle = "white";
-    ctx.font = "30px monospace";
-    ctx.textAlign = "center";
-    ctx.fillText("🎮 Super Mangonio Bros", width/2, height/2 - 40);
-    ctx.font = "20px monospace";
-    ctx.fillText("Presiona Q para empezar", width/2, height/2);
+  if (!gameStarted && !gameOver) {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = "#fff";
+    ctx.font = "24px monospace";
+    ctx.fillText("🎮 Super Mangonio Bros 🎮", width / 2 - 150, 100);
+    ctx.fillText("Presiona Q para comenzar", width / 2 - 140, 150);
+    ctx.fillText("Controles: A/D/W/ESPACIO/CLICK/FLECHAS", width / 2 - 170, 180);
     return;
   }
 
   if (gameOver) {
-    ctx.fillStyle = "red";
-    ctx.font = "40px monospace";
-    ctx.textAlign = "center";
-    ctx.fillText("💀 GAME OVER 💀", width/2, height/2);
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = "#fff";
+    ctx.font = "30px monospace";
+    ctx.fillText("💀 GAME OVER 💀", width / 2 - 150, height / 2 - 20);
+    ctx.font = "20px monospace";
+    ctx.fillText("Presiona Q para continuar", width / 2 - 140, height / 2 + 20);
     return;
   }
 
-  ctx.drawImage(images.background, -cameraX, 0, 2000, height);
+  drawRepeatingBackground();
 
   ctx.fillStyle = "#654321";
-  ctx.fillRect(-cameraX, FLOOR, 2000, 64);
+  ctx.fillRect(-cameraX, FLOOR, 3000, 64);
 
-  for (let p of pipes) {
-    ctx.drawImage(images.pipe, p.x - cameraX, p.y, p.width, p.height);
-  }
+  const flip = player.facing === "left";
 
-  ctx.drawImage(images.goal, goal.x - cameraX, goal.y, goal.width, goal.height);
-
-  for (let e of enemies) {
-    ctx.drawImage(images.enemy, e.x - cameraX, e.y, e.width, e.height);
-  }
-
-  // Dibujar personaje volteado si mira a la izquierda
   ctx.save();
-  if (player.facing === "left") {
-    ctx.translate(player.x + player.width - cameraX, player.y);
-    ctx.scale(-1, 1);
-    ctx.drawImage(images.player, 0, 0, player.width, player.height);
-  } else {
-    ctx.translate(player.x - cameraX, player.y);
-    ctx.drawImage(images.player, 0, 0, player.width, player.height);
-  }
+  ctx.translate(player.x - cameraX + (flip ? player.width : 0), player.y);
+  ctx.scale(flip ? -1 : 1, 1);
+  ctx.drawImage(images.mangonio, 0, 0, player.width, player.height);
   ctx.restore();
 
-  ctx.fillStyle = "white";
-  ctx.font = "20px monospace";
-  ctx.fillText("Vidas: " + lives, 20, 30);
-  ctx.fillText("Nivel: " + level, 20, 60);
+  enemies.forEach(e => {
+    ctx.drawImage(images.enemy, e.x - cameraX, e.y, e.width, e.height);
+  });
+
+  blocks.forEach(b => {
+    ctx.fillStyle = "#b5651d";
+    ctx.fillRect(b.x - cameraX, b.y, b.width, b.height);
+  });
+
+  pipes.forEach(p => {
+    ctx.drawImage(images.pipe, p.x - cameraX, p.y, p.width, p.height);
+  });
+
+  minions.forEach(m => {
+    ctx.drawImage(images.minion, m.x - cameraX, m.y, m.width, m.height);
+  });
+
+  if (goal) {
+    ctx.drawImage(images.coin, goal.x - cameraX, goal.y, goal.width, goal.height);
+  }
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "16px monospace";
+  ctx.fillText("Nivel " + level, 20, 30);
+  for (let i = 0; i < lives; i++) {
+    ctx.fillStyle = "red";
+    ctx.beginPath();
+    ctx.arc(width - 20 - i * 30, 30, 10, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function loop() {
@@ -255,6 +273,9 @@ function loop() {
   draw();
   requestAnimationFrame(loop);
 }
+
+resetLevel();
+loop();
 </script>
 </body>
 </html>
