@@ -5,47 +5,133 @@
   <title>Super Mangonio Bros</title>
   <style>
     body { margin: 0; background: black; overflow: hidden; }
-    canvas { display: block; margin: auto; background: #87CEEB; }
+    canvas { display: block; margin: auto; background: #000; }
   </style>
 </head>
 <body>
 <canvas id="gameCanvas" width="512" height="480"></canvas>
+<audio id="bgm" loop autoplay>
+  <source src="music.mp3" type="audio/mpeg">
+</audio>
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
+const bgm = document.getElementById("bgm");
 
-let player = { x: 50, y: 300, width: 32, height: 32, vy: 0, grounded: false };
 let keys = {};
 let gameStarted = false;
+let level = 1;
+let cameraX = 0;
+
+const GRAVITY = 0.4;
+const FLOOR = 416;
+
+let player = {
+  x: 50, y: 300, vx: 0, vy: 0,
+  width: 32, height: 32,
+  grounded: false,
+  big: false,
+  fire: false
+};
+
+let enemies = [];
+let powerUps = [];
+
+function loadImage(src) {
+  const img = new Image();
+  img.src = src;
+  return img;
+}
+
+const bg = loadImage("background.png");
+const mangonio = loadImage("mangonio.png");
+const enemyImg = loadImage("umpalumpa.png");
 
 document.addEventListener("keydown", e => {
   keys[e.key.toLowerCase()] = true;
   if (e.key.toLowerCase() === "q" && !gameStarted) {
     gameStarted = true;
+    bgm.play();
   }
 });
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
+function resetLevel() {
+  player.x = 50;
+  player.y = 300;
+  player.vx = 0;
+  player.vy = 0;
+  cameraX = 0;
+  enemies = [
+    { x: 600, y: FLOOR - 32, width: 32, height: 32 },
+    { x: 900, y: FLOOR - 32, width: 32, height: 32 }
+  ];
+  powerUps = [
+    { x: 400, y: FLOOR - 32, type: "mushroom" },
+    { x: 800, y: FLOOR - 32, type: "flower" }
+  ];
+}
+
 function update() {
   if (!gameStarted) return;
-  if (keys["a"]) player.x -= 2;
-  if (keys["d"]) player.x += 2;
+
+  if (keys["a"]) player.vx = -2;
+  else if (keys["d"]) player.vx = 2;
+  else player.vx = 0;
+
   if ((keys[" "] || keys["w"]) && player.grounded) {
     player.vy = -8;
     player.grounded = false;
   }
-  player.vy += 0.4;
+
+  player.vy += GRAVITY;
+  player.x += player.vx;
   player.y += player.vy;
-  if (player.y + player.height >= canvas.height - 32) {
-    player.y = canvas.height - 32 - player.height;
+
+  // Floor
+  if (player.y + player.height >= FLOOR) {
+    player.y = FLOOR - player.height;
     player.vy = 0;
     player.grounded = true;
+  }
+
+  // Camera scroll
+  cameraX = player.x - 100;
+
+  // Collision with power-ups
+  powerUps = powerUps.filter(p => {
+    if (player.x < p.x + 32 && player.x + 32 > p.x &&
+        player.y < p.y + 32 && player.y + 32 > p.y) {
+      if (p.type === "mushroom") player.big = true;
+      if (p.type === "flower") player.fire = true;
+      return false;
+    }
+    return true;
+  });
+
+  // Collision with enemies (basic)
+  enemies.forEach(e => {
+    if (player.x < e.x + 32 && player.x + 32 > e.x &&
+        player.y < e.y + 32 && player.y + 32 > e.y) {
+      // Simple reset on collision
+      resetLevel();
+    }
+  });
+
+  // Level finish
+  if (player.x > 1400) {
+    level++;
+    if (level > 5) {
+      alert("¡Ganaste! Todos los niveles completados 🎉");
+      gameStarted = false;
+      level = 1;
+    }
+    resetLevel();
   }
 }
 
 function draw() {
-  ctx.fillStyle = "#87CEEB";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   if (!gameStarted) {
     ctx.fillStyle = "#000";
@@ -56,13 +142,36 @@ function draw() {
     ctx.fillText("Presiona Q para comenzar", 150, 150);
     ctx.fillText("Controles:", 150, 200);
     ctx.fillText("A / D - Mover", 150, 230);
-    ctx.fillText("ESPACIO - Saltar", 150, 260);
+    ctx.fillText("ESPACIO o W - Saltar", 150, 260);
     ctx.fillText("Q - Iniciar", 150, 290);
     return;
   }
 
-  ctx.fillStyle = "orange";
-  ctx.fillRect(player.x, player.y, player.width, player.height);
+  // Background
+  ctx.drawImage(bg, -cameraX * 0.5, 0, canvas.width * 2, canvas.height);
+
+  // Ground
+  ctx.fillStyle = "#654321";
+  ctx.fillRect(-cameraX, FLOOR, 2000, 64);
+
+  // Player
+  ctx.drawImage(mangonio, player.x - cameraX, player.y, player.width, player.height);
+
+  // Enemies
+  enemies.forEach(e => {
+    ctx.drawImage(enemyImg, e.x - cameraX, e.y, e.width, e.height);
+  });
+
+  // Power-ups
+  powerUps.forEach(p => {
+    ctx.fillStyle = p.type === "mushroom" ? "red" : "yellow";
+    ctx.fillRect(p.x - cameraX, p.y, 16, 16);
+  });
+
+  // Level text
+  ctx.fillStyle = "#fff";
+  ctx.font = "14px monospace";
+  ctx.fillText("Nivel " + level, 10, 20);
 }
 
 function loop() {
@@ -70,6 +179,7 @@ function loop() {
   draw();
   requestAnimationFrame(loop);
 }
+resetLevel();
 loop();
 </script>
 </body>
