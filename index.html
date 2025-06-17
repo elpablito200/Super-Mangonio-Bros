@@ -1,34 +1,35 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Super Mangonio Bros</title>
   <style>
     html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: black;
+      margin: 0; padding: 0; overflow: hidden; background: black;
+      height: 100%;
     }
     canvas {
       display: block;
+      background: black;
     }
   </style>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
 <audio id="bgm" loop autoplay>
-  <source src="music.mp3" type="audio/mpeg">
+  <source src="music.mp3" type="audio/mpeg" />
 </audio>
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-const bgm = document.getElementById("bgm");
 
 let width = window.innerWidth;
 let height = window.innerHeight;
 canvas.width = width;
 canvas.height = height;
+
+const GRAVITY = 0.4;
+const FLOOR = height - 64;
 
 let keys = {};
 let mouseClicked = false;
@@ -37,9 +38,6 @@ let gameOver = false;
 let level = 1;
 let cameraX = 0;
 let lives = 3;
-
-const GRAVITY = 0.4;
-const FLOOR = height - 64;
 
 const images = {
   background: new Image(),
@@ -57,15 +55,17 @@ images.minion.src = "minion.png";
 images.coin.src = "monedas.png";
 
 let player = {
-  x: 50, y: 300, vx: 0, vy: 0,
-  width: 32, height: 32,
+  x: 50,
+  y: 300,
+  vx: 0,
+  vy: 0,
+  width: 32,
+  height: 32,
   grounded: false,
   facing: "right"
 };
 
 let enemies = [];
-let powerUps = [];
-let barriers = [];
 let blocks = [];
 let pipes = [];
 let minions = [];
@@ -94,24 +94,83 @@ function resetLevel() {
   player.facing = "right";
   cameraX = 0;
 
-  barriers = [{ x: -50, y: 0, width: 100, height: height }];
-  enemies = [
-    { x: 600, y: FLOOR - 24, width: 24, height: 24, dir: 1, speed: 1 },
-    { x: 900, y: FLOOR - 24, width: 24, height: 24, dir: -1, speed: 1 }
-  ];
-  powerUps = [];
-  blocks = [
-    { x: 150, y: FLOOR - 32, width: 32, height: 32 },
-    { x: 180, y: FLOOR - 64, width: 32, height: 32 },
-    { x: 210, y: FLOOR - 96, width: 32, height: 32 }
-  ];
-  pipes = [
-    { x: 700, y: FLOOR - 48, width: 64, height: 48 }
-  ];
-  minions = [
-    { x: 700, y: FLOOR - 80, width: 32, height: 32 }
-  ];
-  goal = { x: 1300, y: FLOOR - 32, width: 32, height: 32 };
+  enemies = [];
+  blocks = [];
+  pipes = [];
+  minions = [];
+
+  if (level === 1) {
+    enemies = [
+      { x: 600, y: FLOOR - 24, width: 24, height: 24, dir: 1, speed: 1 },
+      { x: 900, y: FLOOR - 24, width: 24, height: 24, dir: -1, speed: 1 }
+    ];
+    blocks = [
+      { x: 150, y: FLOOR - 32, width: 32, height: 32 },
+      { x: 180, y: FLOOR - 64, width: 32, height: 32 },
+      { x: 210, y: FLOOR - 96, width: 32, height: 32 }
+    ];
+    pipes = [
+      { x: 700, y: FLOOR - 48, width: 64, height: 48 }
+    ];
+    minions = [
+      { x: 700, y: FLOOR - 80, width: 32, height: 32 }
+    ];
+    goal = { x: 1300, y: FLOOR - 32, width: 32, height: 32 };
+  } else if (level === 2) {
+    enemies = [
+      { x: 550, y: FLOOR - 24, width: 24, height: 24, dir: 1, speed: 1.2 },
+      { x: 800, y: FLOOR - 24, width: 24, height: 24, dir: -1, speed: 1.2 },
+      { x: 1100, y: FLOOR - 24, width: 24, height: 24, dir: 1, speed: 1.3 }
+    ];
+    blocks = [
+      { x: 150, y: FLOOR - 32, width: 32, height: 32 },
+      { x: 180, y: FLOOR - 64, width: 32, height: 32 },
+      { x: 210, y: FLOOR - 96, width: 32, height: 32 },
+      { x: 400, y: FLOOR - 32, width: 32, height: 32 },
+      { x: 430, y: FLOOR - 64, width: 32, height: 32 }
+    ];
+    pipes = [
+      { x: 700, y: FLOOR - 48, width: 64, height: 48 },
+      { x: 1000, y: FLOOR - 48, width: 64, height: 48 }
+    ];
+    minions = [
+      { x: 700, y: FLOOR - 80, width: 32, height: 32 },
+      { x: 1000, y: FLOOR - 80, width: 32, height: 32 }
+    ];
+    goal = { x: 1400, y: FLOOR - 32, width: 32, height: 32 };
+  } else if (level === 3) {
+    enemies = [
+      { x: 600, y: FLOOR - 24, width: 24, height: 24, dir: 1, speed: 1.5 },
+      { x: 850, y: FLOOR - 24, width: 24, height: 24, dir: -1, speed: 1.7 },
+      { x: 1100, y: FLOOR - 24, width: 24, height: 24, dir: 1, speed: 1.8 },
+      { x: 1300, y: FLOOR - 24, width: 24, height: 24, dir: -1, speed: 1.6 }
+    ];
+    blocks = [
+      { x: 150, y: FLOOR - 32, width: 32, height: 32 },
+      { x: 180, y: FLOOR - 64, width: 32, height: 32 },
+      { x: 210, y: FLOOR - 96, width: 32, height: 32 },
+      { x: 400, y: FLOOR - 32, width: 32, height: 32 },
+      { x: 430, y: FLOOR - 64, width: 32, height: 32 },
+      { x: 900, y: FLOOR - 32, width: 32, height: 32 },
+      { x: 930, y: FLOOR - 64, width: 32, height: 32 }
+    ];
+    pipes = [
+      { x: 700, y: FLOOR - 48, width: 64, height: 48 },
+      { x: 1000, y: FLOOR - 48, width: 64, height: 48 },
+      { x: 1250, y: FLOOR - 48, width: 64, height: 48 }
+    ];
+    minions = [
+      { x: 700, y: FLOOR - 80, width: 32, height: 32 },
+      { x: 1000, y: FLOOR - 80, width: 32, height: 32 },
+      { x: 1250, y: FLOOR - 80, width: 32, height: 32 }
+    ];
+    goal = { x: 1450, y: FLOOR - 32, width: 32, height: 32 };
+  } else {
+    alert("🎉 ¡Completaste todos los niveles!");
+    gameStarted = false;
+    level = 1;
+    resetLevel();
+  }
 }
 
 function checkCollision(a, b) {
@@ -124,7 +183,8 @@ function drawRepeatingBackground() {
   const bgHeight = images.background.height;
   let startX = Math.floor(cameraX / bgWidth) * bgWidth;
   for (let x = startX - bgWidth; x < cameraX + canvas.width; x += bgWidth) {
-    ctx.drawImage(images.background, x - cameraX, 0, bgWidth, bgHeight);
+    // Dibuja la imagen background
+    ctx.drawImage(images.background, x - cameraX, height - bgHeight, bgWidth, bgHeight);
   }
 }
 
@@ -132,150 +192,4 @@ function update() {
   if (!gameStarted || gameOver) return;
 
   let left = keys["a"] || keys["arrowleft"];
-  let right = keys["d"] || keys["arrowright"];
-  let jump = keys["w"] || keys[" "] || keys["arrowup"] || mouseClicked;
-
-  player.vx = 0;
-  if (left) {
-    player.vx = -2;
-    player.facing = "left";
-  }
-  if (right) {
-    player.vx = 2;
-    player.facing = "right";
-  }
-
-  if (jump && player.grounded) {
-    player.vy = -8;
-    player.grounded = false;
-  }
-
-  player.vy += GRAVITY;
-  player.x += player.vx;
-  player.y += player.vy;
-
-  // Piso
-  if (player.y + player.height >= FLOOR) {
-    player.y = FLOOR - player.height;
-    player.vy = 0;
-    player.grounded = true;
-  }
-
-  // Colisiones
-  [...blocks, ...pipes, ...barriers].forEach(obj => {
-    if (checkCollision(player, obj)) {
-      // Piso sólido
-      if (player.vy > 0 && player.y + player.height <= obj.y + player.vy) {
-        player.y = obj.y - player.height;
-        player.vy = 0;
-        player.grounded = true;
-      } else if (player.vy < 0 && player.y >= obj.y + obj.height - player.vy) {
-        player.vy = 0;
-      } else if (player.vx > 0) {
-        player.x = obj.x - player.width;
-      } else if (player.vx < 0) {
-        player.x = obj.x + obj.width;
-      }
-    }
-  });
-
-  enemies.forEach(e => {
-    e.x += e.dir * e.speed;
-    const enemyBox = { x: e.x, y: e.y, width: e.width, height: e.height };
-    if (pipes.some(p => checkCollision(enemyBox, p))) e.dir *= -1;
-    if (checkCollision(player, enemyBox)) {
-      lives--;
-      if (lives <= 0) gameOver = true;
-      resetLevel();
-    }
-  });
-
-  if (goal && checkCollision(player, goal)) {
-    alert("🎉 ¡Llegaste a la meta!");
-    gameStarted = false;
-  }
-
-  cameraX = player.x - 100;
-}
-
-function draw() {
-  ctx.clearRect(0, 0, width, height);
-
-  if (!gameStarted && !gameOver) {
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = "#fff";
-    ctx.font = "24px monospace";
-    ctx.fillText("🎮 Super Mangonio Bros 🎮", width / 2 - 150, 100);
-    ctx.fillText("Presiona Q para comenzar", width / 2 - 140, 150);
-    ctx.fillText("Controles: A/D/W/ESPACIO/CLICK/FLECHAS", width / 2 - 170, 180);
-    return;
-  }
-
-  if (gameOver) {
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = "#fff";
-    ctx.font = "30px monospace";
-    ctx.fillText("💀 GAME OVER 💀", width / 2 - 150, height / 2 - 20);
-    ctx.font = "20px monospace";
-    ctx.fillText("Presiona Q para continuar", width / 2 - 140, height / 2 + 20);
-    return;
-  }
-
-  drawRepeatingBackground();
-
-  ctx.fillStyle = "#654321";
-  ctx.fillRect(-cameraX, FLOOR, 3000, 64);
-
-  const flip = player.facing === "left";
-
-  ctx.save();
-  ctx.translate(player.x - cameraX + (flip ? player.width : 0), player.y);
-  ctx.scale(flip ? -1 : 1, 1);
-  ctx.drawImage(images.mangonio, 0, 0, player.width, player.height);
-  ctx.restore();
-
-  enemies.forEach(e => {
-    ctx.drawImage(images.enemy, e.x - cameraX, e.y, e.width, e.height);
-  });
-
-  blocks.forEach(b => {
-    ctx.fillStyle = "#b5651d";
-    ctx.fillRect(b.x - cameraX, b.y, b.width, b.height);
-  });
-
-  pipes.forEach(p => {
-    ctx.drawImage(images.pipe, p.x - cameraX, p.y, p.width, p.height);
-  });
-
-  minions.forEach(m => {
-    ctx.drawImage(images.minion, m.x - cameraX, m.y, m.width, m.height);
-  });
-
-  if (goal) {
-    ctx.drawImage(images.coin, goal.x - cameraX, goal.y, goal.width, goal.height);
-  }
-
-  ctx.fillStyle = "#fff";
-  ctx.font = "16px monospace";
-  ctx.fillText("Nivel " + level, 20, 30);
-  for (let i = 0; i < lives; i++) {
-    ctx.fillStyle = "red";
-    ctx.beginPath();
-    ctx.arc(width - 20 - i * 30, 30, 10, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-function loop() {
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
-
-resetLevel();
-loop();
-</script>
-</body>
-</html>
+  let right
