@@ -10,141 +10,127 @@
 </head>
 <body>
 <canvas id="gameCanvas" width="512" height="480"></canvas>
-
 <script>
-  const canvas = document.getElementById("gameCanvas");
-  const ctx = canvas.getContext("2d");
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-  // --- CARGA DE IMÁGENES ---
-  const mangonioImg = new Image();
-  mangonioImg.src = "mangonio.png";
+const mangonioImg = new Image();
+mangonioImg.src = "assets/mangonio.png";
 
-  const backgroundImg = new Image();
-  backgroundImg.src = "background.png";
+const backgroundImg = new Image();
+backgroundImg.src = "assets/background.png";
 
-  const music = new Audio("music.mp3");
-  music.loop = true;
+const music = new Audio("assets/music.mp3");
+music.loop = true;
 
-  // --- VARIABLES DEL JUEGO ---
-  let player = {
-    x: 50,
-    y: 300,
-    width: 32,
-    height: 32,
-    vy: 0,
-    grounded: false,
-    big: false,
-    fire: false
-  };
+let player = { x: 50, y: 300, width: 32, height: 32, vy: 0, grounded: false, big: false, fire: false };
+let keys = {};
+let gameStarted = false;
+let paused = false;
+let level = 1;
+let mushrooms = [];
+let flowers = [];
+let levelEndX = 450;
 
-  let keys = {};
-  let gameStarted = false;
-  let paused = false;
-  let mushrooms = [{ x: 200, y: 448 }];
-  let flowers = [{ x: 400, y: 448 }];
+function loadLevel(n) {
+  mushrooms = [];
+  flowers = [];
+  for (let i = 0; i < n; i++) {
+    mushrooms.push({ x: 100 + i * 80, y: 448 });
+    if (i % 2 === 0) flowers.push({ x: 130 + i * 90, y: 448 });
+  }
+  levelEndX = 450 + n * 20;
+  player.x = 50;
+  player.y = 300;
+}
 
-  // --- ENTRADA DE TECLAS ---
-  document.addEventListener("keydown", e => {
-    keys[e.key] = true;
+document.addEventListener("keydown", e => {
+  keys[e.key] = true;
+  if (e.key === "q" && !gameStarted) {
+    gameStarted = true;
+    music.play();
+    loadLevel(level);
+  }
+  if (e.key === "p") paused = !paused;
+});
 
-    if (e.key === "q" && !gameStarted) {
-      gameStarted = true;
-      music.play();
+document.addEventListener("keyup", e => keys[e.key] = false);
+
+function update() {
+  if (!gameStarted || paused) return;
+  if (keys["a"]) player.x -= 2 + level;
+  if (keys["d"]) player.x += 2 + level;
+  if ((keys[" "] || keys["w"]) && player.grounded) {
+    player.vy = -8;
+    player.grounded = false;
+  }
+  player.vy += 0.4;
+  player.y += player.vy;
+  if (player.y + player.height >= canvas.height - 32) {
+    player.y = canvas.height - 32 - player.height;
+    player.vy = 0;
+    player.grounded = true;
+  }
+  mushrooms.forEach((m, i) => {
+    if (player.x < m.x + 16 && player.x + player.width > m.x && player.y < m.y + 16 && player.y + player.height > m.y) {
+      player.big = true;
+      mushrooms.splice(i, 1);
     }
-
-    if (e.key === "p") {
-      paused = !paused;
+  });
+  flowers.forEach((f, i) => {
+    if (player.x < f.x + 16 && player.x + player.width > f.x && player.y < f.y + 16 && player.y + player.height > f.y) {
+      player.fire = true;
+      flowers.splice(i, 1);
     }
   });
 
-  document.addEventListener("keyup", e => keys[e.key] = false);
-
-  // --- FÍSICA Y MOVIMIENTO ---
-  function update() {
-    if (!gameStarted || paused) return;
-
-    // Movimiento horizontal
-    if (keys["a"]) player.x -= 2;
-    if (keys["d"]) player.x += 2;
-
-    // Salto
-    if ((keys[" "] || keys["w"]) && player.grounded) {
-      player.vy = -8;
-      player.grounded = false;
+  if (player.x > levelEndX) {
+    level++;
+    if (level > 5) {
+      gameStarted = false;
+      alert("¡Felicidades! Has completado Super Mangonio Bros!");
+      level = 1;
     }
+    loadLevel(level);
+  }
+}
 
-    // Gravedad
-    player.vy += 0.4;
-    player.y += player.vy;
-
-    // Suelo
-    if (player.y + player.height >= canvas.height - 32) {
-      player.y = canvas.height - 32 - player.height;
-      player.vy = 0;
-      player.grounded = true;
-    }
-
-    // Colisiones con champiñones
-    mushrooms.forEach((m, i) => {
-      if (player.x < m.x + 16 && player.x + player.width > m.x && player.y < m.y + 16 && player.y + player.height > m.y) {
-        player.big = true;
-        mushrooms.splice(i, 1);
-      }
-    });
-
-    // Colisiones con flores
-    flowers.forEach((f, i) => {
-      if (player.x < f.x + 16 && player.x + player.width > f.x && player.y < f.y + 16 && player.y + player.height > f.y) {
-        player.fire = true;
-        flowers.splice(i, 1);
-      }
-    });
+function draw() {
+  if (!gameStarted) {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#fff";
+    ctx.font = "20px monospace";
+    ctx.fillText("🎮 Super Mangonio Bros 🎮", 130, 100);
+    ctx.fillText("Presiona Q para comenzar", 150, 150);
+    ctx.fillText("Controles:", 150, 200);
+    ctx.fillText("A / D - Mover", 150, 230);
+    ctx.fillText("ESPACIO - Saltar", 150, 260);
+    ctx.fillText("Q - Iniciar | P - Pausar", 150, 290);
+    return;
   }
 
-  // --- DIBUJO DEL JUEGO ---
-  function draw() {
-    if (!gameStarted) {
-      ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = "#fff";
-      ctx.font = "20px monospace";
-      ctx.fillText("🎮 Super Mangonio Bros 🎮", 130, 100);
-      ctx.fillText("Presiona Q para comenzar", 150, 150);
-      ctx.fillText("Controles:", 150, 200);
-      ctx.fillText("A / D - Mover", 150, 230);
-      ctx.fillText("ESPACIO - Saltar", 150, 260);
-      ctx.fillText("Q - Iniciar | P - Pausar", 150, 290);
-      return;
-    }
+  ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+  mushrooms.forEach(m => {
+    ctx.fillStyle = "red";
+    ctx.fillRect(m.x, m.y, 16, 16);
+  });
+  flowers.forEach(f => {
+    ctx.fillStyle = "orange";
+    ctx.beginPath();
+    ctx.arc(f.x + 8, f.y + 8, 8, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  const size = player.big ? 48 : 32;
+  ctx.drawImage(mangonioImg, player.x, player.y, size, size);
+}
 
-    ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
-
-    // Powerups
-    mushrooms.forEach(m => {
-      ctx.fillStyle = "red";
-      ctx.fillRect(m.x, m.y, 16, 16);
-    });
-
-    flowers.forEach(f => {
-      ctx.fillStyle = "orange";
-      ctx.beginPath();
-      ctx.arc(f.x + 8, f.y + 8, 8, 0, Math.PI * 2);
-      ctx.fill();
-    });
-
-    // Personaje
-    const size = player.big ? 48 : 32;
-    ctx.drawImage(mangonioImg, player.x, player.y, size, size);
-  }
-
-  // --- GAME LOOP ---
-  function loop() {
-    update();
-    draw();
-    requestAnimationFrame(loop);
-  }
-
-  loop();
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
 </script>
 </body>
 </html>
