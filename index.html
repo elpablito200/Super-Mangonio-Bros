@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Super Mangonio Bros</title>
   <style>
     html, body {
@@ -18,7 +18,7 @@
 <body>
 <canvas id="gameCanvas"></canvas>
 <audio id="bgm" loop autoplay>
-  <source src="music.mp3" type="audio/mpeg">
+  <source src="music.mp3" type="audio/mpeg" />
 </audio>
 <script>
 const canvas = document.getElementById("gameCanvas");
@@ -98,22 +98,19 @@ function resetLevel() {
     { x: 900, y: FLOOR - 24, width: 24, height: 24, dir: -1, speed: 1 }
   ];
 
-  powerUps = [
-    { x: 400, y: FLOOR - 32, type: "mushroom" },
-    { x: 800, y: FLOOR - 32, type: "flower" }
-  ];
+  // Quitamos powerUps (mushroom rojo y flower amarillo)
+  powerUps = [];
 
-  blocks = [
-    { x: 300, y: FLOOR - 150, width: 32, height: 32 },
-    { x: 500, y: FLOOR - 150, width: 32, height: 32 }
-  ];
+  // Quitamos los cubos naranjas (blocks) eliminando array o dejándolo vacío
+  blocks = [];
 
   pipes = [
     { x: 700, y: FLOOR - 48, width: 64, height: 48 }
   ];
 
+  // Minion siempre visible y se moverá verticalmente
   minions = [
-    { x: 700, y: FLOOR - 64, width: 32, height: 32, timer: 0, show: false }
+    { x: 700, y: FLOOR - 64, width: 32, height: 32, vy: -0.5 } // velocidad vertical para subir y bajar
   ];
 }
 
@@ -124,7 +121,8 @@ function checkCollision(a, b) {
 function update() {
   if (!gameStarted || gameOver) return;
 
-  player.vx = (keys["a"] ? -2 : 0) + (keys["d"] ? 2 : 0);
+  // Player corre un poco más rápido que el minion (minion vy=0.5, player vx será 3)
+  player.vx = (keys["a"] ? -3 : 0) + (keys["d"] ? 3 : 0);
   if ((keys["w"] || keys[" "]) && player.grounded) {
     player.vy = -8;
     player.grounded = false;
@@ -148,32 +146,23 @@ function update() {
     }
   }
 
-  blocks.forEach(block => {
-    if (checkCollision(player, block)) {
-      if (player.vy < 0) player.vy = 0;
-    }
-  });
+  // Quitamos colisiones con bloques porque ya no existen
 
   pipes.forEach(pipe => {
     if (checkCollision(player, pipe)) {
-      // no daño
+      // no daño ni nada
     }
   });
 
+  // Minion movimiento vertical de abajo hacia arriba (loop)
   minions.forEach(minion => {
-    minion.timer++;
-    if (minion.timer % 180 < 90) {
-      minion.show = true;
-      if (checkCollision(player, { x: minion.x, y: minion.y, width: 24, height: 24 })) {
-        lives--;
-        if (lives <= 0) {
-          gameOver = true;
-        }
-        resetLevel();
-      }
-    } else {
-      minion.show = false;
-    }
+    minion.y += minion.vy;
+
+    // Cuando llegue muy arriba o abajo invierte dirección para que suba y baje suavemente
+    if (minion.y < FLOOR - 90) minion.vy = 0.5;
+    if (minion.y > FLOOR - 64) minion.vy = -0.5;
+
+    // El minion no desaparece ni aparece, no colisiona
   });
 
   enemies.forEach(e => {
@@ -186,14 +175,7 @@ function update() {
     }
   });
 
-  powerUps = powerUps.filter(p => {
-    if (checkCollision(player, { x: p.x, y: p.y, width: 16, height: 16 })) {
-      if (p.type === "mushroom") player.big = true;
-      if (p.type === "flower") player.fire = true;
-      return false;
-    }
-    return true;
-  });
+  // powerUps están vacíos, no colisiona nada ni los recoge
 
   if (player.x > 1400) {
     level++;
@@ -233,34 +215,59 @@ function draw() {
     return;
   }
 
+  // Fondo y suelo
   ctx.drawImage(bg, -cameraX * 0.5, 0, width * 2, height);
   ctx.fillStyle = "#654321";
   ctx.fillRect(-cameraX, FLOOR, 2000, 64);
 
+  // Jugador
   ctx.drawImage(mangonio, player.x - cameraX, player.y, player.width, player.height);
 
+  // Enemigos
   enemies.forEach(e => {
     ctx.drawImage(enemyImg, e.x - cameraX - 12, e.y - 24, 48, 48);
   });
 
-  powerUps.forEach(p => {
-    ctx.fillStyle = p.type === "mushroom" ? "red" : "yellow";
-    ctx.fillRect(p.x - cameraX, p.y, 16, 16);
-  });
+  // No dibujamos powerUps ni bloques (los quitamos)
 
-  blocks.forEach(b => {
-    ctx.fillStyle = "#FFA500";
-    ctx.fillRect(b.x - cameraX, b.y, b.width, b.height);
-  });
-
+  // Tubos
   pipes.forEach(p => {
     ctx.drawImage(pipeImg, p.x - cameraX, p.y, p.width, p.height);
   });
 
+  // Minions (detrás del tubo y solo se ve la cara)
   minions.forEach(m => {
-    if (m.show) ctx.drawImage(minionImg, m.x - cameraX, m.y, m.width, m.height);
+    // Solo mostrar la cara del minion
+    // Asumo que la imagen del minion es cuadrada y su cara es la parte superior.
+    // Dibujamos una sección recortada del minion (por ejemplo, 32x16 píxeles de la parte superior)
+    const faceHeight = 16;
+    ctx.save();
+    // Dibujamos el minion detrás del tubo (antes de dibujar el tubo, ya dibujamos arriba, así que aquí pintamos en la posición adecuada)
+    // Pero para que quede detrás del tubo, lo dibujamos *antes* que el tubo.
+    // Aquí para hacerlo sencillo, lo dibujamos manualmente antes del tubo:
   });
 
+  // Como el minion debe estar detrás del tubo, lo movemos arriba, y después dibujamos el tubo
+  // Por eso: eliminamos la llamada anterior y la hacemos aquí, antes de dibujar el tubo.
+
+  // Para mantener ordenado el código, repetimos dibujo minion acá:
+
+  // Primero minion (cara solo) detrás del tubo:
+  minions.forEach(m => {
+    const faceHeight = 16;
+    ctx.drawImage(
+      minionImg,
+      0, 0, m.width, faceHeight,        // recortamos la parte superior de la imagen (cara)
+      m.x - cameraX, m.y + m.height - faceHeight, m.width, faceHeight  // posición (asomándose desde abajo hacia arriba)
+    );
+  });
+
+  // Luego dibujamos el tubo (lo mismo que arriba)
+  pipes.forEach(p => {
+    ctx.drawImage(pipeImg, p.x - cameraX, p.y, p.width, p.height);
+  });
+
+  // Vidas y nivel
   ctx.fillStyle = "#fff";
   ctx.font = "16px monospace";
   ctx.fillText("Nivel " + level, 20, 30);
