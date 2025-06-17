@@ -6,7 +6,6 @@
   <style>
     html, body {
       margin: 0; padding: 0; overflow: hidden; background: black;
-      height: 100%;
     }
     canvas {
       display: block;
@@ -22,6 +21,7 @@
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
+const bgm = document.getElementById("bgm");
 
 let width = window.innerWidth;
 let height = window.innerHeight;
@@ -29,47 +29,58 @@ canvas.width = width;
 canvas.height = height;
 
 const GRAVITY = 0.4;
-const FLOOR = height - 64;
+let FLOOR = height - 80;
 
 let keys = {};
-let mouseClicked = false;
 let gameStarted = false;
 let gameOver = false;
 let level = 1;
 let cameraX = 0;
 let lives = 3;
+let facingRight = true; // para que el jugador mire a la derecha o izquierda
 
-const images = {
-  background: new Image(),
-  mangonio: new Image(),
-  enemy: new Image(),
-  pipe: new Image(),
-  minion: new Image(),
-  coin: new Image()
-};
-images.background.src = "background.png";
-images.mangonio.src = "mangonio.png";
-images.enemy.src = "umpalumpa.png";
-images.pipe.src = "tuberia.png";
-images.minion.src = "minion.png";
-images.coin.src = "monedas.png";
+// Objetos para almacenar imágenes cargadas
+let images = {};
+
+const imagesToLoad = [
+  "background.png",
+  "mangonio.png",
+  "minion.png",
+  "monedas.png",
+  "tuberia.png",
+  "umpalumpa.png"
+];
+
+function loadAllImages(callback) {
+  let loadedImagesCount = 0;
+  imagesToLoad.forEach(src => {
+    const img = new Image();
+    img.src = src;
+    img.onload = () => {
+      loadedImagesCount++;
+      if (loadedImagesCount === imagesToLoad.length) {
+        callback();
+      }
+    };
+    images[src.split('.')[0]] = img;
+  });
+}
 
 let player = {
-  x: 50,
-  y: 300,
-  vx: 0,
-  vy: 0,
-  width: 32,
-  height: 32,
+  x: 50, y: 300, vx: 0, vy: 0,
+  width: 32, height: 32,
   grounded: false,
-  facing: "right"
+  big: false,
+  fire: false
 };
 
 let enemies = [];
+let powerUps = [];
+let barriers = [];
 let blocks = [];
 let pipes = [];
 let minions = [];
-let goal = null;
+let metas = [];
 
 document.addEventListener("keydown", e => {
   keys[e.key.toLowerCase()] = true;
@@ -83,93 +94,87 @@ document.addEventListener("keydown", e => {
   }
 });
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
-document.addEventListener("mousedown", () => mouseClicked = true);
-document.addEventListener("mouseup", () => mouseClicked = false);
+document.addEventListener("click", e => {
+  if (player.grounded) {
+    player.vy = -8;
+    player.grounded = false;
+  }
+});
 
 function resetLevel() {
   player.x = 50;
-  player.y = 300;
+  player.y = FLOOR - player.height;
   player.vx = 0;
   player.vy = 0;
-  player.facing = "right";
   cameraX = 0;
+  facingRight = true;
 
   enemies = [];
+  powerUps = [];
+  barriers = [];
   blocks = [];
   pipes = [];
   minions = [];
+  metas = [];
 
-  if (level === 1) {
+  if(level === 1) {
+    barriers = [{ x: -50, y: 0, width: 100, height: height }];
+    // Escalera delante de la tuberia
+    blocks = [
+      { x: 650, y: FLOOR - 64, width: 32, height: 48 },
+      { x: 682, y: FLOOR - 96, width: 32, height: 48 },
+      { x: 714, y: FLOOR - 128, width: 32, height: 48 }
+    ];
+    pipes = [{ x: 750, y: FLOOR - 80, width: 64, height: 80 }];
     enemies = [
       { x: 600, y: FLOOR - 24, width: 24, height: 24, dir: 1, speed: 1 },
       { x: 900, y: FLOOR - 24, width: 24, height: 24, dir: -1, speed: 1 }
     ];
-    blocks = [
-      { x: 150, y: FLOOR - 32, width: 32, height: 32 },
-      { x: 180, y: FLOOR - 64, width: 32, height: 32 },
-      { x: 210, y: FLOOR - 96, width: 32, height: 32 }
-    ];
-    pipes = [
-      { x: 700, y: FLOOR - 48, width: 64, height: 48 }
+    powerUps = [
+      { x: 400, y: FLOOR - 32, type: "mushroom" },
+      { x: 800, y: FLOOR - 32, type: "flower" }
     ];
     minions = [
-      { x: 700, y: FLOOR - 80, width: 32, height: 32 }
+      { x: 700, y: FLOOR - 64, width: 32, height: 32, timer: 0, show: false }
     ];
-    goal = { x: 1300, y: FLOOR - 32, width: 32, height: 32 };
-  } else if (level === 2) {
+    metas = [
+      { x: 1100, y: FLOOR - 48, width: 32, height: 48 }
+    ];
+  }
+  else if(level === 2) {
+    barriers = [{ x: -50, y: 0, width: 100, height: height }];
+    blocks = [
+      { x: 300, y: FLOOR - 64, width: 32, height: 48 },
+      { x: 332, y: FLOOR - 96, width: 32, height: 48 },
+      { x: 364, y: FLOOR - 128, width: 32, height: 48 }
+    ];
+    pipes = [
+      { x: 600, y: FLOOR - 80, width: 64, height: 80 },
+      { x: 850, y: FLOOR - 80, width: 64, height: 80 }
+    ];
     enemies = [
-      { x: 550, y: FLOOR - 24, width: 24, height: 24, dir: 1, speed: 1.2 },
-      { x: 800, y: FLOOR - 24, width: 24, height: 24, dir: -1, speed: 1.2 },
-      { x: 1100, y: FLOOR - 24, width: 24, height: 24, dir: 1, speed: 1.3 }
+      { x: 650, y: FLOOR - 24, width: 24, height: 24, dir: 1, speed: 1.2 },
+      { x: 900, y: FLOOR - 24, width: 24, height: 24, dir: -1, speed: 1.2 }
     ];
-    blocks = [
-      { x: 150, y: FLOOR - 32, width: 32, height: 32 },
-      { x: 180, y: FLOOR - 64, width: 32, height: 32 },
-      { x: 210, y: FLOOR - 96, width: 32, height: 32 },
-      { x: 400, y: FLOOR - 32, width: 32, height: 32 },
-      { x: 430, y: FLOOR - 64, width: 32, height: 32 }
-    ];
-    pipes = [
-      { x: 700, y: FLOOR - 48, width: 64, height: 48 },
-      { x: 1000, y: FLOOR - 48, width: 64, height: 48 }
+    powerUps = [
+      { x: 400, y: FLOOR - 32, type: "mushroom" }
     ];
     minions = [
-      { x: 700, y: FLOOR - 80, width: 32, height: 32 },
-      { x: 1000, y: FLOOR - 80, width: 32, height: 32 }
+      { x: 700, y: FLOOR - 64, width: 32, height: 32, timer: 0, show: false }
     ];
-    goal = { x: 1400, y: FLOOR - 32, width: 32, height: 32 };
-  } else if (level === 3) {
-    enemies = [
-      { x: 600, y: FLOOR - 24, width: 24, height: 24, dir: 1, speed: 1.5 },
-      { x: 850, y: FLOOR - 24, width: 24, height: 24, dir: -1, speed: 1.7 },
-      { x: 1100, y: FLOOR - 24, width: 24, height: 24, dir: 1, speed: 1.8 },
-      { x: 1300, y: FLOOR - 24, width: 24, height: 24, dir: -1, speed: 1.6 }
+    metas = [
+      { x: 1200, y: FLOOR - 48, width: 32, height: 48 }
     ];
-    blocks = [
-      { x: 150, y: FLOOR - 32, width: 32, height: 32 },
-      { x: 180, y: FLOOR - 64, width: 32, height: 32 },
-      { x: 210, y: FLOOR - 96, width: 32, height: 32 },
-      { x: 400, y: FLOOR - 32, width: 32, height: 32 },
-      { x: 430, y: FLOOR - 64, width: 32, height: 32 },
-      { x: 900, y: FLOOR - 32, width: 32, height: 32 },
-      { x: 930, y: FLOOR - 64, width: 32, height: 32 }
-    ];
-    pipes = [
-      { x: 700, y: FLOOR - 48, width: 64, height: 48 },
-      { x: 1000, y: FLOOR - 48, width: 64, height: 48 },
-      { x: 1250, y: FLOOR - 48, width: 64, height: 48 }
-    ];
-    minions = [
-      { x: 700, y: FLOOR - 80, width: 32, height: 32 },
-      { x: 1000, y: FLOOR - 80, width: 32, height: 32 },
-      { x: 1250, y: FLOOR - 80, width: 32, height: 32 }
-    ];
-    goal = { x: 1450, y: FLOOR - 32, width: 32, height: 32 };
-  } else {
-    alert("🎉 ¡Completaste todos los niveles!");
-    gameStarted = false;
-    level = 1;
-    resetLevel();
+  }
+  else {
+    // Más niveles puedes agregar aquí
+    barriers = [];
+    blocks = [];
+    pipes = [];
+    enemies = [];
+    powerUps = [];
+    minions = [];
+    metas = [];
   }
 }
 
@@ -178,18 +183,241 @@ function checkCollision(a, b) {
          a.y < b.y + b.height && a.y + a.height > b.y;
 }
 
-function drawRepeatingBackground() {
+function update() {
+  if(!gameStarted || gameOver) return;
+
+  // Movimiento horizontal y orientación
+  if(keys["a"] || keys["arrowleft"]) {
+    player.vx = -3;
+    facingRight = false;
+  } else if(keys["d"] || keys["arrowright"]) {
+    player.vx = 3;
+    facingRight = true;
+  } else {
+    player.vx = 0;
+  }
+
+  // Salto
+  if((keys["w"] || keys[" "] || keys["arrowup"]) && player.grounded) {
+    player.vy = -8;
+    player.grounded = false;
+  }
+
+  player.vy += GRAVITY;
+  player.x += player.vx;
+  player.y += player.vy;
+
+  // Piso
+  if(player.y + player.height >= FLOOR) {
+    player.y = FLOOR - player.height;
+    player.vy = 0;
+    player.grounded = true;
+  }
+
+  // Barreras (pared izquierda)
+  for(let barrier of barriers) {
+    if(checkCollision(player, barrier)) {
+      if(player.vx < 0) {
+        player.x = barrier.x + barrier.width;
+      }
+    }
+  }
+
+  // Pisar bloques y escaleras sólidas (por abajo y desde arriba)
+  let onBlock = false;
+  blocks.forEach(block => {
+    // Colisión arriba del bloque (piso)
+    if(player.vy >= 0 &&
+       player.x + player.width > block.x &&
+       player.x < block.x + block.width &&
+       player.y + player.height >= block.y &&
+       player.y + player.height <= block.y + block.height) {
+      player.y = block.y - player.height;
+      player.vy = 0;
+      player.grounded = true;
+      onBlock = true;
+    }
+  });
+
+  // Pisar tuberías
+  pipes.forEach(pipe => {
+    if(player.vy >= 0 &&
+       player.x + player.width > pipe.x &&
+       player.x < pipe.x + pipe.width &&
+       player.y + player.height >= pipe.y &&
+       player.y + player.height <= pipe.y + pipe.height) {
+      player.y = pipe.y - player.height;
+      player.vy = 0;
+      player.grounded = true;
+      onBlock = true;
+    }
+  });
+
+  // Evitar que enemigos atraviesen tuberías (rebote en tubería)
+  enemies.forEach(e => {
+    e.x += e.dir * e.speed;
+    // Rebote en tuberías
+    for(let pipe of pipes) {
+      if(checkCollision(e, pipe)) {
+        e.dir *= -1;
+      }
+    }
+    if(e.x < 0) e.dir = 1;
+    if(e.x > 1400) e.dir = -1;
+    if(checkCollision(player, e)) {
+      lives--;
+      if(lives <= 0) gameOver = true;
+      resetLevel();
+    }
+  });
+
+  // Minion asomándose de abajo hacia arriba (no desaparece, solo mueve y se ve su cara detrás del tubo)
+  minions.forEach(minion => {
+    minion.timer++;
+    // Movimiento vertical continuo de abajo hacia arriba y luego vuelve a bajar
+    minion.y += minion.timer % 180 < 90 ? -0.5 : 0.5;
+    // Limitar movimiento entre un rango
+    if(minion.y < FLOOR - 80) minion.y = FLOOR - 80;
+    if(minion.y > FLOOR - 32) minion.y = FLOOR - 32;
+  });
+
+  // Colisiones con powerUps
+  powerUps = powerUps.filter(p => {
+    if(checkCollision(player, { x: p.x, y: p.y, width: 16, height: 16 })) {
+      if(p.type === "mushroom") player.big = true;
+      if(p.type === "flower") player.fire = true;
+      return false;
+    }
+    return true;
+  });
+
+  // Colisión con metas
+  metas.forEach(meta => {
+    if(checkCollision(player, meta)) {
+      level++;
+      if(level > 2) {
+        alert("¡Ganaste! Todos los niveles completados 🎉");
+        gameStarted = false;
+        level = 1;
+      }
+      resetLevel();
+    }
+  });
+
+  cameraX = player.x - 100;
+}
+
+function draw() {
+  ctx.clearRect(0, 0, width, height);
+
+  if(!gameStarted && !gameOver) {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = "#fff";
+    ctx.font = "24px monospace";
+    ctx.fillText("🎮 Super Mangonio Bros 🎮", width/2 - 150, 100);
+    ctx.fillText("Presiona Q para comenzar", width/2 - 140, 150);
+    ctx.fillText("Controles: A/D/W/ESPACIO, Flechas, Click Izq, Q", width/2 - 200, 180);
+    return;
+  }
+
+  if(gameOver) {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = "#fff";
+    ctx.font = "30px monospace";
+    ctx.fillText("💀 GAME OVER 💀", width/2 - 150, height/2 - 20);
+    ctx.font = "20px monospace";
+    ctx.fillText("Presiona Q para continuar", width/2 - 140, height/2 + 20);
+    return;
+  }
+
+  // Dibujo fondo: repetir horizontalmente para evitar cuadro negro
   const bgWidth = images.background.width;
   const bgHeight = images.background.height;
-  let startX = Math.floor(cameraX / bgWidth) * bgWidth;
-  for (let x = startX - bgWidth; x < cameraX + canvas.width; x += bgWidth) {
-    // Dibuja la imagen background
-    ctx.drawImage(images.background, x - cameraX, height - bgHeight, bgWidth, bgHeight);
+  let bgY = FLOOR - bgHeight + 40; // Ajustar vertical (bajar para eliminar cuadro negro)
+
+  // Repetir fondo según cámaraX
+  let startX = - (cameraX % bgWidth);
+  for(let x = startX; x < width; x += bgWidth) {
+    ctx.drawImage(images.background, x, bgY, bgWidth, bgHeight);
+  }
+
+  // Suelo: mitad verde (hierba) mitad marrón (tierra)
+  let sueloY = FLOOR;
+  ctx.fillStyle = "#2d862d"; // verde
+  ctx.fillRect(-cameraX, sueloY, 1000, 32);
+  ctx.fillStyle = "#654321"; // marrón
+  ctx.fillRect(-cameraX + 1000, sueloY, 1000, 32);
+
+  // Dibujo tuberías
+  pipes.forEach(p => {
+    ctx.drawImage(images.tuberia, p.x - cameraX, p.y, p.width, p.height);
+  });
+
+  // Dibujo bloques (escaleras)
+  blocks.forEach(b => {
+    ctx.fillStyle = "#8B4513";
+    ctx.fillRect(b.x - cameraX, b.y, b.width, b.height);
+  });
+
+  // Dibujo metas (usamos imagen de monedas)
+  metas.forEach(m => {
+    ctx.drawImage(images.monedas, m.x - cameraX, m.y, m.width, m.height);
+  });
+
+  // Dibujo enemigos
+  enemies.forEach(e => {
+    ctx.drawImage(images.umpalumpa, e.x - cameraX - 12, e.y - 24, 48, 48);
+  });
+
+  // Dibujo minion (cara asomándose detrás de tubería)
+  minions.forEach(m => {
+    // Dibuja parte de la cara (solo la mitad)
+    let pipe = pipes[0]; // supondremos 1 tubería
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(pipe.x - cameraX, pipe.y, pipe.width/2, pipe.height); 
+    ctx.clip();
+    ctx.drawImage(images.minion, m.x - cameraX, m.y, m.width, m.height);
+    ctx.restore();
+  });
+
+  // Dibujo powerUps
+  powerUps.forEach(p => {
+    ctx.fillStyle = p.type === "mushroom" ? "red" : "yellow";
+    ctx.fillRect(p.x - cameraX, p.y, 16, 16);
+  });
+
+  // Dibujo jugador con orientación
+  ctx.save();
+  ctx.translate(player.x - cameraX + player.width/2, player.y + player.height/2);
+  ctx.scale(facingRight ? 1 : -1, 1);
+  ctx.drawImage(images.mangonio, -player.width/2, -player.height/2, player.width, player.height);
+  ctx.restore();
+
+  // HUD - nivel y vidas
+  ctx.fillStyle = "#fff";
+  ctx.font = "16px monospace";
+  ctx.fillText("Nivel " + level, 20, 30);
+  for(let i=0; i < lives; i++) {
+    ctx.fillStyle = "red";
+    ctx.beginPath();
+    ctx.arc(width - 20 - i*30, 30, 10, 0, Math.PI*2);
+    ctx.fill();
   }
 }
 
-function update() {
-  if (!gameStarted || gameOver) return;
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
 
-  let left = keys["a"] || keys["arrowleft"];
-  let right
+loadAllImages(() => {
+  resetLevel();
+  loop();
+});
+</script>
+</body>
+</html>
