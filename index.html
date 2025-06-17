@@ -1,90 +1,142 @@
-import { useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Button } from "@/components/ui/button";
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mango Dash - Stereo Mandess</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: linear-gradient(to bottom, #fef08a, #fb923c);
+      font-family: sans-serif;
+    }
 
-export default function MangoDash() {
-  const [jumping, setJumping] = useState(false);
-  const [position, setPosition] = useState(0);
-  const [obstacles, setObstacles] = useState([]);
-  const gameRef = useRef(null);
-  const gravity = 2;
+    #game {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
 
-  // Handle jump
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.code === 'Space' && !jumping) {
-        setJumping(true);
-        let jumpHeight = 0;
-        const jumpInterval = setInterval(() => {
-          if (jumpHeight < 100) {
-            setPosition(prev => prev - 5);
-            jumpHeight += 5;
-          } else {
-            clearInterval(jumpInterval);
-            // Fall down
-            const fallInterval = setInterval(() => {
-              setPosition(prev => {
-                if (prev < 0) return 0;
-                return prev + gravity;
-              });
-              if (position >= 0) {
-                clearInterval(fallInterval);
-                setJumping(false);
+    #player {
+      position: absolute;
+      bottom: 0;
+      left: 80px;
+      width: 80px;
+      height: 80px;
+      transition: transform 0.1s;
+    }
+
+    .obstacle {
+      position: absolute;
+      bottom: 0;
+      width: 40px;
+      height: 100px;
+      background: #dc2626;
+      border-radius: 6px;
+    }
+
+    .title {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 10px 20px;
+      font-weight: bold;
+      font-size: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .restart {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      background: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game">
+    <div class="title">Stereo Mandess</div>
+    <img id="player" src="cubongio.png" alt="Cubongio" />
+    <button class="restart" onclick="window.location.reload()">Reiniciar</button>
+  </div>
+
+  <script>
+    const game = document.getElementById('game');
+    const player = document.getElementById('player');
+    let isJumping = false;
+    let position = 0;
+    let obstacles = [];
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && !isJumping) {
+        isJumping = true;
+        let jumpCount = 0;
+        const upInterval = setInterval(() => {
+          if (jumpCount >= 20) {
+            clearInterval(upInterval);
+            const downInterval = setInterval(() => {
+              if (position <= 0) {
+                clearInterval(downInterval);
+                isJumping = false;
+              } else {
+                position -= 5;
+                player.style.transform = `translateY(-${position}px)`;
               }
             }, 20);
+          } else {
+            position += 5;
+            player.style.transform = `translateY(-${position}px)`;
+            jumpCount++;
           }
         }, 20);
       }
-    };
+    });
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [jumping, position]);
+    function createObstacle() {
+      const obstacle = document.createElement('div');
+      obstacle.classList.add('obstacle');
+      let left = window.innerWidth;
+      obstacle.style.left = left + 'px';
+      game.appendChild(obstacle);
 
-  // Obstacle generation
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setObstacles(prev => [...prev, { id: Date.now(), left: 1000 }]);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
+      const moveInterval = setInterval(() => {
+        left -= 5;
+        obstacle.style.left = left + 'px';
 
-  // Move obstacles
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setObstacles(prev => prev.map(obs => ({ ...obs, left: obs.left - 5 })).filter(obs => obs.left > -50));
-    }, 20);
-    return () => clearInterval(interval);
-  }, []);
+        // Collision detection
+        const playerLeft = 80;
+        const playerRight = 80 + 80;
+        const obstacleRight = left + 40;
 
-  return (
-    <div className="relative w-full h-screen bg-gradient-to-b from-yellow-200 to-orange-300 overflow-hidden" ref={gameRef}>
-      <div
-        className="absolute bottom-0 left-20 w-20 h-20"
-        style={{ transform: `translateY(${-position}px)` }}
-      >
-        <img
-          src="/cubongio.png"
-          alt="Cubongio"
-          className="w-full h-full object-contain rounded shadow-lg"
-        />
-      </div>
+        if (
+          left < playerRight &&
+          obstacleRight > playerLeft &&
+          position < 80
+        ) {
+          alert('¡Has perdido!');
+          window.location.reload();
+        }
 
-      {obstacles.map(obs => (
-        <div
-          key={obs.id}
-          className="absolute bottom-0 w-12 h-24 bg-red-600 rounded-md"
-          style={{ left: obs.left }}
-        ></div>
-      ))}
+        if (left < -40) {
+          clearInterval(moveInterval);
+          game.removeChild(obstacle);
+        }
+      }, 20);
 
-      <div className="absolute top-4 left-4 bg-white p-2 px-4 rounded shadow text-xl font-bold">
-        Stereo Mandess
-      </div>
+      obstacles.push(obstacle);
+    }
 
-      <div className="absolute bottom-4 right-4">
-        <Button onClick={() => window.location.reload()}>Reiniciar</Button>
-      </div>
-    </div>
-  );
-}
+    setInterval(createObstacle, 2000);
+  </script>
+</body>
+</html>
