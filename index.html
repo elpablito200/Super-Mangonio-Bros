@@ -1,124 +1,206 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <title>Super Mango Bros</title>
+  <meta charset="UTF-8">
+  <title>Super Mangonio Bros</title>
   <style>
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
+      background: black;
+      color: white;
+      font-family: 'Courier New', monospace;
       overflow: hidden;
     }
+
     canvas {
       display: block;
-      background: url('https://i.imgur.com/n8YHjXA.png'); 
-      background-size: cover;
+      margin: auto;
+      background-color: #5c94fc;
+      border: 4px solid #222;
+    }
+
+    #startScreen, #pauseScreen, #loadingScreen {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.85);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-size: 18px;
+      text-align: center;
+      z-index: 10;
+    }
+
+    #pauseScreen { display: none; }
+    #startScreen h1 {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    #startScreen ul {
+      text-align: left;
     }
   </style>
 </head>
 <body>
-<canvas id="gameCanvas" width="640" height="480"></canvas>
+
+<div id="loadingScreen">Cargando juego...</div>
+<div id="startScreen">
+  <div>
+    <h1>Super Mangonio Bros</h1>
+    <p>Presiona <strong>Q</strong> para comenzar</p>
+    <h2>Controles:</h2>
+    <ul>
+      <li><strong>A</strong>: Mover a la izquierda</li>
+      <li><strong>D</strong>: Mover a la derecha</li>
+      <li><strong>ESPACIO</strong>: Saltar</li>
+      <li><strong>Q</strong>: Iniciar juego</li>
+      <li><strong>P</strong>: Pausar</li>
+    </ul>
+  </div>
+</div>
+
+<div id="pauseScreen"><h2>Juego en pausa. Presiona P para continuar</h2></div>
+
+<canvas id="game" width="512" height="256"></canvas>
+<audio id="bgm" src="music.mp3" loop></audio>
+
 <script>
-// Inicialización de canvas
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
 
-// Sprite base64 incrustado (el mango-personaje)
-const sprite = new Image();
-sprite.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsSAAALEgHS3X78AAAFFklEQVR4nO2aW08bVRTGf7N7iFSQtNBIUMGAiURDbAygRiYyoR8TASRkUjwUFn0BdKBFS+BGzEZoXEaLC4mJiPoh2EKQkiUFGQWo1aGoGAyiA+aGr+X/y1x37zJw53JnU+7P3dvfc1+f1yzeel9WV1dX5cpn0TfUGKoqqriKgjMdbV1dZHL5bHq9HovFYklZWVqJUKrp27Uqapmfj8Xh4eHi4cOFCB7vd3JWVlZWWlpaXF5eXlpa2oJD7tVqtLgN3t/bm8/Pz6HQ6zWxsbCTzH1++fCk1NTVVVVU0Go2GhobGypUrGhoaioqK0tHRweHh4UlJSUFVVdXLlyrW0tMSTk5MoFAqS7u5u6urq4v//f3FxcbGxsbEiWJfLpRIcHBzQ3d3d7du36+Pj47W3t8fExATZ2dlYXFxMNBqNv78/HR0d8fT0dHBwMPr6+ry6XsVi0YWFhCQ8Pz1tvb4+YmJjQ0tISPXv2FB0d7eDgYH5+/sPDw9bW1qKgoCAtLS1wcHCQkJDAaDRaW1vLzMxkaGgocnJyCgsL09jYyIABA1heXo6UlBRVV1fXvAXt7OxkZGRGZmZlVVVWnZsmUnT54Ui8UYGBjQ2dlZsVgMJCQnB09MT2tvbFxYWFhgYGHDu3DnFxcWsrKxkZ2eTkpL06dNHV1dXycnJtLS00NDQ8Pr6KktLS4uPj/fu3SvY2FiFhYWhoaGhoaOjQ1xcHLa2tlxeXo6Hh4fGxsZwOBy5ublBQEAwGo3k5OR0+fBhJSUnR1tZGTEyMfP78+fT09PT29rbq6ulJSUuLo6Gh4eHhwc3ODmJj4+/ujoaFhYWMjNzSVN3P8my2WwKCoqIiIiAja1taGhISkpKS4ufnp6cHpXJ5YWFjQ3d3Nzc2dnZ2SkpL07Nmzc/bsWYoWkWgU2tracnNzQ0RERHp6Opqbm7u9vU1PTw/LlyyUlJRUWFiYnTt3joSEBMViMX19fRoaGlRWVmZmZkZGxuLi4nT06OwzkgKqqKtLS0uLixsbGxwfk9evRIeHi4pKSkZGRkQE5OjpoaGgsWbIEvV6v0dHRVVJSYkFBQXt7O52dnR0ZGcnx8bFTp04lJSX5+/uLFi2IiYkhPDwcvb29pKamYmNjc+TIEe7fvx9BQYF6vV6+vr7IyMhQVVXF6enpM2fOlBoaioCAAAQHB/vv37xsZGQE1NTUkJCTQ3N2NhYcF2u52VlZSwsLDQ0NBQUFMTo6ip6enri4uFBSUlJyfHxESkpK3N3dAQoKSpqamjQ3Nw9lZWX09fWxsbEJCQmhoaF8//33X3t7e8XFxejo6Lh//z4+PjZr165dQUGB6enpiY2NxdHRkZ6eTsViEY/H47FYZGRkSEhLExsZy79694OBgMTExpKamEhYWpmf/q14L8xJENg8AAAAASUVORK5CYII=';
+  const playerImg = new Image();
+  playerImg.src = 'mango8bit.png';
 
-// Jugador
-const player = {
-  x: 50,
-  y: 300,
-  width: 64,
-  height: 64,
-  velocityY: 0,
-  jumpPower: -12,
-  grounded: false,
-  gravity: 0.8
-};
+  const mushroomImg = new Image();
+  mushroomImg.src = 'mushroom.png';
 
-// Objetos del mundo
-const ground = { x: 0, y: 440, width: canvas.width, height: 40, color: "#654321" };
-const platform = { x: 200, y: 350, width: 100, height: 20, color: "#b5651d" };
-const enemy = { x: 400, y: 400, width: 40, height: 40, speed: 2, direction: 1, color: "purple" };
+  const fireflowerImg = new Image();
+  fireflowerImg.src = 'fireflower.png';
 
-let keys = {};
+  let keys = {};
+  let gameStarted = false;
+  let paused = false;
 
-function isColliding(a, b) {
-  return a.x < b.x + b.width &&
-         a.x + a.width > b.x &&
-         a.y < b.y + b.height &&
-         a.y + a.height > b.y;
-}
+  const bgm = document.getElementById('bgm');
 
-function update() {
-  if (keys['d']) player.x += 4;
-  if (keys['a']) player.x -= 4;
+  const player = {
+    x: 50,
+    y: 200,
+    w: 16,
+    h: 16,
+    vy: 0,
+    grounded: false,
+    big: false,
+    fire: false
+  };
 
-  player.velocityY += player.gravity;
-  player.y += player.velocityY;
+  const gravity = 0.8;
+  const jumpPower = -10;
+  const speed = 2;
 
-  player.grounded = false;
-  if (player.y + player.height > ground.y) {
-    player.y = ground.y - player.height;
-    player.velocityY = 0;
-    player.grounded = true;
+  const mushrooms = [{ x: 200, y: 200, w: 16, h: 16 }];
+  const fireflowers = [{ x: 300, y: 200, w: 16, h: 16 }];
+
+  function drawPlayer() {
+    ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
   }
 
-  if (isColliding(player, platform) && player.velocityY >= 0) {
-    player.y = platform.y - player.height;
-    player.velocityY = 0;
-    player.grounded = true;
+  function drawPowerups() {
+    mushrooms.forEach(m => ctx.drawImage(mushroomImg, m.x, m.y, m.w, m.h));
+    fireflowers.forEach(f => ctx.drawImage(fireflowerImg, f.x, f.y, f.w, f.h));
   }
 
-  enemy.x += enemy.speed * enemy.direction;
-  if (enemy.x <= 380 || enemy.x + enemy.width >= 480) {
-    enemy.direction *= -1;
+  function update() {
+    if (!paused && gameStarted) {
+      // Movimiento horizontal
+      if (keys['a']) player.x -= speed;
+      if (keys['d']) player.x += speed;
+
+      // Saltar
+      if (keys[' '] && player.grounded) {
+        player.vy = jumpPower;
+        player.grounded = false;
+      }
+
+      // Gravedad
+      player.vy += gravity;
+      player.y += player.vy;
+
+      if (player.y + player.h >= canvas.height) {
+        player.y = canvas.height - player.h;
+        player.vy = 0;
+        player.grounded = true;
+      }
+
+      // Colisiones con power-ups
+      mushrooms.forEach((m, i) => {
+        if (collides(player, m)) {
+          player.big = true;
+          player.h = 32;
+          mushrooms.splice(i, 1);
+        }
+      });
+
+      fireflowers.forEach((f, i) => {
+        if (collides(player, f)) {
+          player.fire = true;
+          fireflowers.splice(i, 1);
+        }
+      });
+    }
   }
 
-  if (isColliding(player, enemy)) {
-    alert("¡Has sido golpeado por una fruta malvada!");
-    player.x = 50;
-    player.y = 300;
+  function collides(a, b) {
+    return a.x < b.x + b.w &&
+           a.x + a.w > b.x &&
+           a.y < b.y + b.h &&
+           a.y + a.h > b.y;
   }
-}
 
-function drawRect(obj) {
-  ctx.fillStyle = obj.color;
-  ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
-}
-
-function drawImage(obj, img) {
-  ctx.drawImage(img, obj.x, obj.y, obj.width, obj.height);
-}
-
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawRect(ground);
-  drawRect(platform);
-  drawRect(enemy);
-  drawImage(player, sprite);
-}
-
-function loop() {
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
-
-// Controles con WASD y salto con W
-document.addEventListener('keydown', (e) => {
-  keys[e.key.toLowerCase()] = true;
-  if (e.key.toLowerCase() === 'w' && player.grounded) {
-    player.velocityY = player.jumpPower;
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawPlayer();
+    drawPowerups();
   }
-});
-document.addEventListener('keyup', (e) => {
-  keys[e.key.toLowerCase()] = false;
-});
 
-sprite.onload = () => loop();
+  function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+  }
+
+  window.addEventListener('keydown', e => {
+    keys[e.key.toLowerCase()] = true;
+
+    if (e.key.toLowerCase() === 'q' && !gameStarted) {
+      document.getElementById('startScreen').style.display = 'none';
+      document.getElementById('loadingScreen').style.display = 'none';
+      bgm.play();
+      gameStarted = true;
+    }
+
+    if (e.key.toLowerCase() === 'p') {
+      paused = !paused;
+      document.getElementById('pauseScreen').style.display = paused ? 'flex' : 'none';
+    }
+  });
+
+  window.addEventListener('keyup', e => {
+    keys[e.key.toLowerCase()] = false;
+  });
+
+  window.onload = () => {
+    // Ocultar loading después de cargar
+    document.getElementById('loadingScreen').style.display = 'none';
+    gameLoop();
+  };
 </script>
+
 </body>
 </html>
