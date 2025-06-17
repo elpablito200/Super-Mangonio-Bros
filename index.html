@@ -23,6 +23,9 @@ backgroundImg.src = "assets/background.png";
 const music = new Audio("assets/music.mp3");
 music.loop = true;
 
+const umpalumpaImg = new Image();
+umpalumpaImg.src = "assets/umpalumpa.png";
+
 let player = { x: 50, y: 300, width: 32, height: 32, vy: 0, grounded: false, big: false, fire: false };
 let keys = {};
 let gameStarted = false;
@@ -30,16 +33,19 @@ let paused = false;
 let level = 1;
 let mushrooms = [];
 let flowers = [];
-let levelEndX = 450;
+let enemies = [];
+let levelEndX = 1000;
 
 function loadLevel(n) {
   mushrooms = [];
   flowers = [];
-  for (let i = 0; i < n; i++) {
-    mushrooms.push({ x: 100 + i * 80, y: 448 });
-    if (i % 2 === 0) flowers.push({ x: 130 + i * 90, y: 448 });
+  enemies = [];
+  for (let i = 0; i < 5 + n; i++) {
+    mushrooms.push({ x: 100 + i * 100, y: 448 });
+    if (i % 2 === 0) flowers.push({ x: 130 + i * 100, y: 448 });
+    if (i % 3 === 0) enemies.push({ x: 160 + i * 120, y: 448, dir: 1 });
   }
-  levelEndX = 450 + n * 20;
+  levelEndX = 1000 + n * 200;
   player.x = 50;
   player.y = 300;
 }
@@ -71,16 +77,28 @@ function update() {
     player.vy = 0;
     player.grounded = true;
   }
+
   mushrooms.forEach((m, i) => {
     if (player.x < m.x + 16 && player.x + player.width > m.x && player.y < m.y + 16 && player.y + player.height > m.y) {
       player.big = true;
       mushrooms.splice(i, 1);
     }
   });
+
   flowers.forEach((f, i) => {
     if (player.x < f.x + 16 && player.x + player.width > f.x && player.y < f.y + 16 && player.y + player.height > f.y) {
       player.fire = true;
       flowers.splice(i, 1);
+    }
+  });
+
+  enemies.forEach(enemy => {
+    enemy.x += enemy.dir * 1;
+    if (enemy.x < 0 || enemy.x > canvas.width - 32) enemy.dir *= -1;
+    if (player.x < enemy.x + 32 && player.x + player.width > enemy.x &&
+        player.y < enemy.y + 32 && player.y + player.height > enemy.y) {
+      alert("¡Has sido atrapado por un umpalumpa!");
+      loadLevel(level);
     }
   });
 
@@ -120,6 +138,9 @@ function draw() {
     ctx.beginPath();
     ctx.arc(f.x + 8, f.y + 8, 8, 0, Math.PI * 2);
     ctx.fill();
+  });
+  enemies.forEach(e => {
+    ctx.drawImage(umpalumpaImg, e.x, e.y - 16, 32, 32);
   });
   const size = player.big ? 48 : 32;
   ctx.drawImage(mangonioImg, player.x, player.y, size, size);
