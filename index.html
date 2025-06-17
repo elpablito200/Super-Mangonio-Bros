@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Super Mangonio Bros</title>
-<style>
-  html, body { margin:0; padding:0; overflow:hidden; background:black; }
-  canvas { display:block; background:#000; }
-</style>
+  <meta charset="UTF-8">
+  <title>Super Mangonio Bros</title>
+  <style>
+    html, body { margin:0; padding:0; overflow:hidden; background:black; }
+    canvas { display:block; }
+  </style>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
@@ -18,20 +18,18 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let width = canvas.width;
-let height = canvas.height;
-const GRAVITY = 0.4;
+const width = canvas.width;
+const height = canvas.height;
 const FLOOR = height - 64;
+const GRAVITY = 0.4;
 
 let keys = {};
-let mouse = { left:false };
+let mouse = { left: false };
 let gameStarted = false;
 let gameOver = false;
 let level = 1;
 let lives = 3;
 let cameraX = 0;
-
-// 🎵 Música
 const music = document.getElementById("bgMusic");
 
 let images = {};
@@ -56,16 +54,24 @@ for (let key in toLoad) {
   };
 }
 
-let player = { x:50, y:FLOOR-32, vx:0, vy:0, width:32, height:32, grounded:false };
+let player = {
+  x: 50, y: FLOOR - 32, vx: 0, vy: 0,
+  width: 32, height: 32,
+  grounded: false,
+  facing: "right"
+};
+
 let enemies = [];
 let pipes = [];
-let stairs = [];
-let goal = { x: 1300, y: FLOOR - 64, width: 32, height: 64 };
+let goal = {};
 
-function resetLevel(){
-  player.x = 50; player.y = FLOOR - player.height;
-  player.vx = 0; player.vy = 0;
+function resetLevel() {
+  player.x = 50;
+  player.y = FLOOR - player.height;
+  player.vx = 0;
+  player.vy = 0;
   player.grounded = false;
+  player.facing = "right";
   cameraX = 0;
 
   enemies = [
@@ -76,19 +82,18 @@ function resetLevel(){
     { x: 700, y: FLOOR - 48, width: 64, height: 48 }
   ];
 
-  stairs = [
-    { x: 660, y: FLOOR - 80, width: 40, height: 32 }
-  ];
-
+  // Meta
   goal = { x: 1300, y: FLOOR - 64, width: 32, height: 64 };
+
   gameOver = false;
 }
 
-function checkCollision(a,b){
+function checkCollision(a, b) {
   return a.x < b.x + b.width && a.x + a.width > b.x &&
          a.y < b.y + b.height && a.y + a.height > b.y;
 }
-function checkVerticalCollision(a,b){
+
+function checkVerticalCollision(a, b) {
   return a.x < b.x + b.width && a.x + a.width > b.x &&
          a.y + a.height <= b.y + 5 &&
          a.y + a.height + a.vy >= b.y;
@@ -99,7 +104,6 @@ document.addEventListener("keydown", e => {
   if (e.key === "ArrowLeft") keys["arrowleft"] = true;
   if (e.key === "ArrowRight") keys["arrowright"] = true;
   if (e.key === "ArrowUp") keys["arrowup"] = true;
-
   if (e.key.toLowerCase() === "q" && (!gameStarted || gameOver)) {
     gameStarted = true;
     music.play();
@@ -108,29 +112,35 @@ document.addEventListener("keydown", e => {
     resetLevel();
   }
 });
+
 document.addEventListener("keyup", e => {
   keys[e.key.toLowerCase()] = false;
   if (e.key === "ArrowLeft") keys["arrowleft"] = false;
   if (e.key === "ArrowRight") keys["arrowright"] = false;
   if (e.key === "ArrowUp") keys["arrowup"] = false;
 });
+
 canvas.addEventListener("mousedown", e => {
-  if(e.button === 0) mouse.left = true;
-});
-canvas.addEventListener("mouseup", e => {
-  if(e.button === 0) mouse.left = false;
+  if (e.button === 0) mouse.left = true;
 });
 
-function update(){
-  if(!gameStarted) return;
-  if(gameOver) return;
+canvas.addEventListener("mouseup", e => {
+  if (e.button === 0) mouse.left = false;
+});
+
+function update() {
+  if (!gameStarted || gameOver) return;
 
   let left = keys["a"] || keys["arrowleft"];
   let right = keys["d"] || keys["arrowright"];
+
   player.vx = (left ? -3 : 0) + (right ? 3 : 0);
 
+  if (left) player.facing = "left";
+  if (right) player.facing = "right";
+
   let jump = keys["w"] || keys[" "] || keys["arrowup"] || mouse.left;
-  if(jump && player.grounded){
+  if (jump && player.grounded) {
     player.vy = -8;
     player.grounded = false;
   }
@@ -139,48 +149,40 @@ function update(){
   player.x += player.vx;
   player.y += player.vy;
 
-  if(player.y + player.height >= FLOOR){
+  if (player.y + player.height >= FLOOR) {
     player.y = FLOOR - player.height;
     player.vy = 0;
     player.grounded = true;
   }
 
-  for(let stair of stairs){
-    if(checkVerticalCollision(player, stair)){
-      player.y = stair.y - player.height;
-      player.vy = 0;
-      player.grounded = true;
-    }
-  }
-
-  for(let pipe of pipes){
-    if(checkVerticalCollision(player, pipe)){
+  for (let pipe of pipes) {
+    if (checkVerticalCollision(player, pipe)) {
       player.y = pipe.y - player.height;
       player.vy = 0;
       player.grounded = true;
     }
-    if(checkCollision(player, pipe)){
-      if(player.vx > 0) player.x = pipe.x - player.width;
-      else if(player.vx < 0) player.x = pipe.x + pipe.width;
+    if (checkCollision(player, pipe)) {
+      if (player.vx > 0) player.x = pipe.x - player.width;
+      else if (player.vx < 0) player.x = pipe.x + pipe.width;
     }
   }
 
-  for(let e of enemies){
+  for (let e of enemies) {
     e.x += e.dir * e.speed;
-    for(let pipe of pipes){
-      if(checkCollision(e, pipe)) e.dir *= -1;
+    for (let pipe of pipes) {
+      if (checkCollision(e, pipe)) e.dir *= -1;
     }
-    if(checkCollision(player, e)){
+    if (checkCollision(player, e)) {
       lives--;
-      if(lives <= 0) gameOver = true;
+      if (lives <= 0) gameOver = true;
       resetLevel();
       return;
     }
   }
 
-  if(checkCollision(player, goal)){
+  if (checkCollision(player, goal)) {
     level++;
-    if(level > 3){
+    if (level > 3) {
       alert("🎉 ¡Ganaste todos los niveles!");
       music.pause();
       gameStarted = false;
@@ -191,13 +193,13 @@ function update(){
   }
 
   cameraX = player.x - 100;
-  if(cameraX < 0) cameraX = 0;
+  if (cameraX < 0) cameraX = 0;
 }
 
-function draw(){
+function draw() {
   ctx.clearRect(0, 0, width, height);
 
-  if(!gameStarted){
+  if (!gameStarted) {
     ctx.fillStyle = "white";
     ctx.font = "30px monospace";
     ctx.textAlign = "center";
@@ -207,7 +209,7 @@ function draw(){
     return;
   }
 
-  if(gameOver){
+  if (gameOver) {
     ctx.fillStyle = "red";
     ctx.font = "40px monospace";
     ctx.textAlign = "center";
@@ -215,43 +217,40 @@ function draw(){
     return;
   }
 
-  // Fondo
   ctx.drawImage(images.background, -cameraX, 0, 2000, height);
 
-  // Suelo
   ctx.fillStyle = "#654321";
   ctx.fillRect(-cameraX, FLOOR, 2000, 64);
 
-  // Escaleras
-  ctx.fillStyle = "#886633";
-  for(let s of stairs){
-    ctx.fillRect(s.x - cameraX, s.y, s.width, s.height);
-  }
-
-  // Tuberías
-  for(let p of pipes){
+  for (let p of pipes) {
     ctx.drawImage(images.pipe, p.x - cameraX, p.y, p.width, p.height);
   }
 
-  // Meta
   ctx.drawImage(images.goal, goal.x - cameraX, goal.y, goal.width, goal.height);
 
-  // Enemigos
-  for(let e of enemies){
+  for (let e of enemies) {
     ctx.drawImage(images.enemy, e.x - cameraX, e.y, e.width, e.height);
   }
 
-  // Jugador
-  ctx.drawImage(images.player, player.x - cameraX, player.y, player.width, player.height);
+  // Dibujar personaje volteado si mira a la izquierda
+  ctx.save();
+  if (player.facing === "left") {
+    ctx.translate(player.x + player.width - cameraX, player.y);
+    ctx.scale(-1, 1);
+    ctx.drawImage(images.player, 0, 0, player.width, player.height);
+  } else {
+    ctx.translate(player.x - cameraX, player.y);
+    ctx.drawImage(images.player, 0, 0, player.width, player.height);
+  }
+  ctx.restore();
 
-  // HUD
   ctx.fillStyle = "white";
   ctx.font = "20px monospace";
   ctx.fillText("Vidas: " + lives, 20, 30);
   ctx.fillText("Nivel: " + level, 20, 60);
 }
 
-function loop(){
+function loop() {
   update();
   draw();
   requestAnimationFrame(loop);
