@@ -1,88 +1,96 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <title>Super Mangonio Bros Mejorado</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: black;
-    }
-    canvas {
-      display: block;
-    }
-  </style>
+<meta charset="UTF-8" />
+<title>Super Mangonio Bros Mejorado</title>
+<style>
+  html, body { margin:0; padding:0; overflow:hidden; background:black; }
+  canvas { display:block; background:#87ceeb; }
+</style>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
-<audio id="bgm" loop autoplay>
-  <source src="music.mp3" type="audio/mpeg" />
-</audio>
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-const bgm = document.getElementById("bgm");
 
 let width = window.innerWidth;
 let height = window.innerHeight;
 canvas.width = width;
 canvas.height = height;
 
+const GRAVITY = 0.4;
+const FLOOR = height - 64;
+
 let keys = {};
-let mouse = { left: false };
+let mouse = { left:false };
 let gameStarted = false;
 let gameOver = false;
 let level = 1;
-let cameraX = 0;
 let lives = 3;
-
-const GRAVITY = 0.4;
-let FLOOR = height - 64;
+let cameraX = 0;
 
 let player = {
-  x: 50, y: 300, vx: 0, vy: 0,
-  width: 32, height: 32,
-  grounded: false,
-  big: false,
-  fire: false
+  x:50, y: FLOOR - 32,
+  vx:0, vy:0,
+  width:32, height:32,
+  grounded: false
 };
 
 let enemies = [];
-let powerUps = [];
-let barriers = [];
-let blocks = [];
 let pipes = [];
-let minions = [];
 let stairs = [];
+let goal = { x: 1300, y: FLOOR - 64, width: 32, height: 64 };
 
-function loadImage(src) {
-  const img = new Image();
-  img.src = src;
-  return img;
+function resetLevel(){
+  player.x = 50; player.y = FLOOR - player.height;
+  player.vx = 0; player.vy = 0;
+  player.grounded = false;
+  cameraX = 0;
+
+  enemies = [
+    { x: 600, y: FLOOR - 24, width: 24, height: 24, dir: 1, speed: 1 },
+    { x: 900, y: FLOOR - 24, width: 24, height: 24, dir: -1, speed: 1 }
+  ];
+
+  pipes = [
+    { x: 700, y: FLOOR - 48, width: 64, height: 48 }
+  ];
+
+  stairs = [
+    { x: 660, y: FLOOR - 80, width: 40, height: 32 }
+  ];
+
+  goal = { x: 1300, y: FLOOR - 64, width: 32, height: 64 };
+
+  gameOver = false;
 }
 
-const bg = loadImage("background.png");
-const mangonio = loadImage("mangonio.png");
-const enemyImg = loadImage("umpalumpa.png");
-const pipeImg = loadImage("tuberia.png");
-const minionImg = loadImage("minion.png");
+function checkCollision(a,b){
+  return a.x < b.x + b.width &&
+         a.x + a.width > b.x &&
+         a.y < b.y + b.height &&
+         a.y + a.height > b.y;
+}
+
+function checkVerticalCollision(a,b){
+  return a.x < b.x + b.width &&
+         a.x + a.width > b.x &&
+         a.y + a.height <= b.y + 5 &&
+         a.y + a.height + a.vy >= b.y;
+}
 
 document.addEventListener("keydown", e => {
   keys[e.key.toLowerCase()] = true;
-  // También detectar flechas:
   if (e.key === "ArrowLeft") keys["arrowleft"] = true;
   if (e.key === "ArrowRight") keys["arrowright"] = true;
   if (e.key === "ArrowUp") keys["arrowup"] = true;
 
   if ((e.key.toLowerCase() === "q") && (!gameStarted || gameOver)) {
     gameStarted = true;
-    gameOver = false;
-    lives = 3;
     level = 1;
+    lives = 3;
     resetLevel();
-    bgm.play();
   }
 });
 document.addEventListener("keyup", e => {
@@ -92,75 +100,31 @@ document.addEventListener("keyup", e => {
   if (e.key === "ArrowUp") keys["arrowup"] = false;
 });
 canvas.addEventListener("mousedown", e => {
-  if (e.button === 0) mouse.left = true;
+  if(e.button===0) mouse.left = true;
 });
 canvas.addEventListener("mouseup", e => {
-  if (e.button === 0) mouse.left = false;
+  if(e.button===0) mouse.left = false;
 });
 
-function resetLevel() {
-  player.x = 50;
-  player.y = 300;
-  player.vx = 0;
-  player.vy = 0;
-  cameraX = 0;
+function update(){
+  if(!gameStarted) return;
 
-  if (level === 1) {
-    barriers = [{ x: -50, y: 0, width: 100, height: height }];
-  } else {
-    barriers = [];
+  if(gameOver){
+    if(keys["q"]){
+      gameOver = false;
+      lives = 3;
+      level = 1;
+      resetLevel();
+    }
+    return;
   }
 
-  enemies = [
-    { x: 600, y: FLOOR - 24, width: 24, height: 24, dir: 1, speed: 1 },
-    { x: 900, y: FLOOR - 24, width: 24, height: 24, dir: -1, speed: 1 }
-  ];
-
-  powerUps = [];
-
-  blocks = [];
-
-  pipes = [
-    { x: 700, y: FLOOR - 48, width: 64, height: 48 }
-  ];
-
-  // Escaleras sólidas detrás del tubo, justo antes:
-  stairs = [
-    { x: 660, y: FLOOR - 80, width: 40, height: 32 },  // Ajusta posición y tamaño como quieras
-  ];
-
-  minions = [
-    { x: 700, y: FLOOR - 64, width: 32, height: 32, vy: -0.5 }
-  ];
-}
-
-// Chequeo de colisiones AABB simplificado
-function checkCollision(a, b) {
-  return a.x < b.x + b.width &&
-         a.x + a.width > b.x &&
-         a.y < b.y + b.height &&
-         a.y + a.height > b.y;
-}
-
-// Chequeo solo de colisión vertical (para suelo/plataformas)
-function checkVerticalCollision(a, b) {
-  return a.x < b.x + b.width &&
-         a.x + a.width > b.x &&
-         a.y + a.height <= b.y + 5 &&  // Pequeño margen para "aterrizar"
-         a.y + a.height + a.vy >= b.y;
-}
-
-function update() {
-  if (!gameStarted || gameOver) return;
-
-  // Movimiento horizontal con WASD y flechas
   let left = keys["a"] || keys["arrowleft"];
   let right = keys["d"] || keys["arrowright"];
   player.vx = (left ? -3 : 0) + (right ? 3 : 0);
 
-  // Salto con W, espacio, flecha arriba o clic izquierdo
   let jump = keys["w"] || keys[" "] || keys["arrowup"] || mouse.left;
-  if (jump && player.grounded) {
+  if(jump && player.grounded){
     player.vy = -8;
     player.grounded = false;
   }
@@ -169,66 +133,147 @@ function update() {
   player.x += player.vx;
   player.y += player.vy;
 
-  // Suelo normal
-  if (player.y + player.height >= FLOOR) {
+  // Piso normal
+  if(player.y + player.height >= FLOOR){
     player.y = FLOOR - player.height;
     player.vy = 0;
     player.grounded = true;
   }
 
-  // Colisión con barreras (solo a la izquierda para no atravesar)
-  for (let barrier of barriers) {
-    if (checkCollision(player, barrier)) {
-      if (player.vx < 0) {
-        player.x = barrier.x + barrier.width;
-      }
-    }
-  }
-
-  // Colisión con escaleras sólidas (stairs)
-  for (let stair of stairs) {
-    if (checkVerticalCollision(player, stair)) {
+  // Escaleras sólidas
+  for(let stair of stairs){
+    if(checkVerticalCollision(player, stair)){
       player.y = stair.y - player.height;
       player.vy = 0;
       player.grounded = true;
     }
   }
 
-  // Colisión con tuberías sólidas (pipes) - el jugador puede pararse encima y no atravesar lados
-  pipes.forEach(pipe => {
-    // Arriba - para poder pararse
-    if (checkVerticalCollision(player, pipe)) {
+  // Tubos sólidos: no atraviesa y puede pararse arriba
+  for(let pipe of pipes){
+    if(checkVerticalCollision(player, pipe)){
       player.y = pipe.y - player.height;
       player.vy = 0;
       player.grounded = true;
     }
-    // Lados: izquierda y derecha bloquean paso
-    if (checkCollision(player, pipe)) {
-      if (player.vx > 0) { // derecha
-        player.x = pipe.x - player.width;
-      } else if (player.vx < 0) { // izquierda
-        player.x = pipe.x + pipe.width;
+    if(checkCollision(player, pipe)){
+      if(player.vx > 0) player.x = pipe.x - player.width;
+      else if(player.vx < 0) player.x = pipe.x + pipe.width;
+    }
+  }
+
+  // Enemigos se mueven y no atraviesan tubos
+  for(let e of enemies){
+    e.x += e.dir * e.speed;
+    if(e.x < 0) e.dir = 1;
+    if(e.x > 1400) e.dir = -1;
+
+    for(let pipe of pipes){
+      if(checkCollision(e, pipe)){
+        e.dir *= -1;
       }
     }
-  });
 
-  // Minion movimiento vertical
-  minions.forEach(minion => {
-    minion.y += minion.vy;
-    if (minion.y < FLOOR - 90) minion.vy = 0.5;
-    if (minion.y > FLOOR - 64) minion.vy = -0.5;
-  });
+    // Si tocan al jugador pierdes vida
+    if(checkCollision(player, e)){
+      lives--;
+      if(lives <= 0){
+        gameOver = true;
+      }
+      resetLevel();
+      return;
+    }
+  }
 
-  // Enemigos movimiento y colisión con tuberías sólidas
-  enemies.forEach(e => {
-    e.x += e.dir * e.speed;
+  // Llegar a la meta avanza nivel
+  if(checkCollision(player, goal)){
+    level++;
+    if(level > 5){
+      alert("¡Ganaste todos los niveles! 🎉");
+      gameStarted = false;
+    } else {
+      alert("Nivel "+level+" completado!");
+      resetLevel();
+    }
+  }
 
-    // Evitar que atraviesen los bordes del mundo
-    if (e.x < 0) e.dir = 1;
-    if (e.x > 1400) e.dir = -1;
+  // Cámara sigue jugador (no pasa de 0)
+  cameraX = player.x - 100;
+  if(cameraX < 0) cameraX = 0;
+}
 
-    // Colisión con tuberías (evitan pasar)
-    pipes.forEach(pipe => {
-      if (checkCollision(e, pipe)) {
-        // Cambian dirección al tocar tubería
-        if
+function draw(){
+  ctx.clearRect(0,0,width,height);
+
+  if(!gameStarted){
+    ctx.fillStyle = "white";
+    ctx.font = "30px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("🎮 Super Mangonio Bros 🎮", width/2, height/2 - 40);
+    ctx.font = "20px monospace";
+    ctx.fillText("Presiona Q para empezar", width/2, height/2);
+    ctx.fillText("Moverse: A/D o flechas ←→", width/2, height/2 + 30);
+    ctx.fillText("Saltar: W, Espacio, Flecha ↑ o clic izquierdo", width/2, height/2 + 60);
+    return;
+  }
+
+  if(gameOver){
+    ctx.fillStyle = "red";
+    ctx.font = "40px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("💀 GAME OVER 💀", width/2, height/2);
+    ctx.font = "20px monospace";
+    ctx.fillText("Presiona Q para reiniciar", width/2, height/2 + 40);
+    return;
+  }
+
+  // Fondo simple cielo y suelo
+  ctx.fillStyle = "#87ceeb"; // cielo celeste
+  ctx.fillRect(0,0,width,height);
+  ctx.fillStyle = "#654321"; // suelo marrón
+  ctx.fillRect(-cameraX, FLOOR, 2000, 64);
+
+  // Escaleras sólidas (detrás de tubos)
+  ctx.fillStyle = "#886633";
+  for(let s of stairs){
+    ctx.fillRect(s.x - cameraX, s.y, s.width, s.height);
+  }
+
+  // Tuberías verdes sólidas
+  ctx.fillStyle = "#008000";
+  for(let p of pipes){
+    ctx.fillRect(p.x - cameraX, p.y, p.width, p.height);
+  }
+
+  // Meta (una puerta celeste)
+  ctx.fillStyle = "cyan";
+  ctx.fillRect(goal.x - cameraX, goal.y, goal.width, goal.height);
+
+  // Enemigos (umpalumpas)
+  ctx.fillStyle = "purple";
+  for(let e of enemies){
+    ctx.fillRect(e.x - cameraX, e.y, e.width, e.height);
+  }
+
+  // Jugador (mangonio)
+  ctx.fillStyle = "yellow";
+  ctx.fillRect(player.x - cameraX, player.y, player.width, player.height);
+
+  // Vidas
+  ctx.fillStyle = "white";
+  ctx.font = "20px monospace";
+  ctx.fillText("Vidas: " + lives, 20, 30);
+  ctx.fillText("Nivel: " + level, 20, 60);
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+resetLevel();
+loop();
+</script>
+</body>
+</html>
